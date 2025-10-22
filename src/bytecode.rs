@@ -74,6 +74,12 @@ pub enum OpCode {
     OpStrIsAlnum,
     /// Joins an iterable of strings using the separator string.
     OpStrJoin,
+    /// Calls a function with a given number of positional arguments.
+    OpCall,
+    /// Pushes the value of a local variable onto the stack.
+    OpGetLocal,
+    /// Updates the value of an existing local variable.
+    OpSetLocal,
 }
 
 impl From<u8> for OpCode {
@@ -114,12 +120,15 @@ impl From<u8> for OpCode {
             32 => OpCode::OpStrLower,
             33 => OpCode::OpStrIsAlnum,
             34 => OpCode::OpStrJoin,
+            35 => OpCode::OpCall,
+            36 => OpCode::OpGetLocal,
+            37 => OpCode::OpSetLocal,
             _ => panic!("Invalid opcode: {}", byte),
         }
     }
 }
 /// A chunk of bytecode representing a compiled script or function.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Chunk {
     pub code: Vec<u8>,
     pub constants: Vec<Object>,

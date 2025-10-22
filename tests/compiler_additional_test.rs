@@ -13,7 +13,10 @@ fn opcodes(chunk: &Chunk) -> Vec<OpCode> {
             OpCode::OpConstant
             | OpCode::OpDefineGlobal
             | OpCode::OpGetGlobal
-            | OpCode::OpSetGlobal => {
+            | OpCode::OpSetGlobal
+            | OpCode::OpCall
+            | OpCode::OpGetLocal
+            | OpCode::OpSetLocal => {
                 ip += 1;
             }
             OpCode::OpIterNext | OpCode::OpLoop | OpCode::OpJumpIfFalse | OpCode::OpJump => {
@@ -54,6 +57,23 @@ fn compile_emits_add_and_pop_for_expression_statement() {
     );
     assert!(matches!(&*chunk.constants[0], ObjectType::Integer(1)));
     assert!(matches!(&*chunk.constants[1], ObjectType::Integer(2)));
+}
+
+#[test]
+fn compile_function_definition_emits_function_object() {
+    let chunk = Compiler::compile("def add(a, b): return a + b").expect("Expected chunk");
+    assert!(chunk.constants.iter().any(|value| matches!(
+        &**value,
+        ObjectType::Function(func) if func.name == "add" && func.arity == 2
+    )));
+    assert!(opcodes(&chunk).contains(&OpCode::OpDefineGlobal));
+}
+
+#[test]
+fn compile_function_call_emits_call_opcode() {
+    let source = "def add(a, b): return a + b\nprint(add(1, 2))";
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    assert!(opcodes(&chunk).contains(&OpCode::OpCall));
 }
 
 #[test]
@@ -848,9 +868,10 @@ fn compile_handles_contains_with_list() {
 // Tests specifically targeting uncovered lines in compiler.rs
 
 #[test]
-fn compile_errors_on_identifier_with_lparen_no_assignment() {
-    // Line 105: LParen after identifier with bracket_depth 0
-    assert!(Compiler::compile("foo()").is_none());
+fn compile_handles_function_call_expression() {
+    let chunk = Compiler::compile("foo()").expect("Expected chunk");
+    let ops = opcodes(&chunk);
+    assert!(ops.contains(&OpCode::OpCall));
 }
 
 #[test]

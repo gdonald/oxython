@@ -37,6 +37,12 @@ pub enum Token {
     #[token("else")]
     Else,
 
+    #[token("def")]
+    Def,
+
+    #[token("return")]
+    Return,
+
     #[token("break")]
     Break,
 

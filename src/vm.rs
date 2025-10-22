@@ -1,17 +1,23 @@
 use crate::bytecode::{Chunk, OpCode};
-use crate::object::{Object, ObjectType};
+use crate::object::{FunctionObject, Object, ObjectType};
 use std::collections::HashMap;
 use std::rc::Rc;
 
 const STACK_MAX: usize = 256;
+const FRAMES_MAX: usize = 64;
+
+struct CallFrame {
+    function: Rc<FunctionObject>,
+    ip: usize,
+    slot: usize,
+}
 
 pub struct VM {
-    chunk: Chunk,
-    ip: usize, // Instruction Pointer
     stack: [Object; STACK_MAX],
     stack_top: usize,
     globals: HashMap<String, Object>,
     last_popped: Object,
+    frames: Vec<CallFrame>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -34,31 +40,42 @@ impl VM {
         // For now, let's create a default Nil object.
         let default_obj = Rc::new(ObjectType::Nil);
         VM {
-            chunk: Chunk::new(),
-            ip: 0,
             stack: [(); STACK_MAX].map(|_| default_obj.clone()),
             stack_top: 0,
             globals: HashMap::new(),
             last_popped: default_obj,
+            frames: Vec::new(),
         }
     }
 
     pub fn interpret(&mut self, chunk: Chunk) -> InterpretResult {
-        self.chunk = chunk;
-        self.ip = 0;
+        self.stack_top = 0;
+        self.frames.clear();
+        self.last_popped = Rc::new(ObjectType::Nil);
+
+        let script_function = Rc::new(FunctionObject::new("<script>".to_string(), 0, chunk));
+        self.push(Rc::new(ObjectType::Function(script_function.clone())));
+        self.frames.push(CallFrame {
+            function: script_function,
+            ip: 0,
+            slot: 0,
+        });
+
         self.run()
     }
 
     fn run(&mut self) -> InterpretResult {
         loop {
-            let instruction = self.chunk.code[self.ip];
-            self.ip += 1;
+            if self.frames.is_empty() {
+                return InterpretResult::Ok;
+            }
 
-            match OpCode::from(instruction) {
+            let instruction = OpCode::from(self.read_byte());
+
+            match instruction {
                 OpCode::OpConstant => {
-                    let const_idx = self.chunk.code[self.ip] as usize;
-                    self.ip += 1;
-                    let constant = self.chunk.constants[const_idx].clone();
+                    let const_idx = self.read_byte() as usize;
+                    let constant = self.current_chunk().constants[const_idx].clone();
                     self.push(constant);
                 }
                 OpCode::OpAdd => {
@@ -163,17 +180,15 @@ impl VM {
                     }
                 }
                 OpCode::OpDefineGlobal => {
-                    let name_idx = self.chunk.code[self.ip] as usize;
-                    self.ip += 1;
-                    if let ObjectType::String(name) = &*self.chunk.constants[name_idx] {
+                    let name_idx = self.read_byte() as usize;
+                    if let ObjectType::String(name) = &*self.current_chunk().constants[name_idx] {
                         self.globals.insert(name.clone(), self.peek(0).clone());
                         self.pop();
                     }
                 }
                 OpCode::OpGetGlobal => {
-                    let name_idx = self.chunk.code[self.ip] as usize;
-                    self.ip += 1;
-                    if let ObjectType::String(name) = &*self.chunk.constants[name_idx] {
+                    let name_idx = self.read_byte() as usize;
+                    if let ObjectType::String(name) = &*self.current_chunk().constants[name_idx] {
                         if let Some(value) = self.globals.get(name) {
                             self.push(value.clone());
                         } else {
@@ -183,15 +198,40 @@ impl VM {
                     }
                 }
                 OpCode::OpSetGlobal => {
-                    let name_idx = self.chunk.code[self.ip] as usize;
-                    self.ip += 1;
-                    if let ObjectType::String(name) = &*self.chunk.constants[name_idx] {
+                    let name_idx = self.read_byte() as usize;
+                    if let ObjectType::String(name) = &*self.current_chunk().constants[name_idx] {
                         if self.globals.contains_key(name) {
                             let value = self.peek(0).clone();
                             self.globals.insert(name.clone(), value);
                         } else {
                             return InterpretResult::RuntimeError;
                         }
+                    }
+                }
+                OpCode::OpCall => {
+                    let arg_count = self.read_byte() as usize;
+                    if !self.call_value(arg_count) {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::OpGetLocal => {
+                    let slot = self.read_byte() as usize;
+                    if let Some(frame) = self.frames.last() {
+                        let index = frame.slot + slot;
+                        let value = self.stack[index].clone();
+                        self.push(value);
+                    } else {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::OpSetLocal => {
+                    let slot = self.read_byte() as usize;
+                    if let Some(frame) = self.frames.last() {
+                        let index = frame.slot + slot;
+                        let value = self.peek(0).clone();
+                        self.stack[index] = value;
+                    } else {
+                        return InterpretResult::RuntimeError;
                     }
                 }
                 OpCode::OpPrintSpaced => {
@@ -429,8 +469,7 @@ impl VM {
                     self.push(Rc::new(ObjectType::Float(rounded)));
                 }
                 OpCode::OpZip => {
-                    let arg_count = self.chunk.code[self.ip] as usize;
-                    self.ip += 1;
+                    let arg_count = self.read_byte() as usize;
                     let star_mask = self.read_u16() as u16;
 
                     if arg_count == 0 {
@@ -481,9 +520,9 @@ impl VM {
                     self.push(Rc::new(ObjectType::List(zipped)));
                 }
                 OpCode::OpReturn => {
-                    // OpReturn simply ends the execution loop.
-                    // The final value of the script (if any) would have been left on the stack.
-                    return InterpretResult::Ok;
+                    if self.handle_return() {
+                        return InterpretResult::Ok;
+                    }
                 }
                 OpCode::OpPop => {
                     self.pop();
@@ -502,7 +541,9 @@ impl VM {
                             let idx_usize = *idx as usize;
                             if idx_usize >= values.len() {
                                 // Iteration finished; skip body.
-                                self.ip += offset;
+                                if let Some(frame) = self.frames.last_mut() {
+                                    frame.ip += offset;
+                                }
                             } else {
                                 let element = values[idx_usize].clone();
                                 let next_index = (idx_usize + 1) as i64;
@@ -518,7 +559,9 @@ impl VM {
                             let chars: Vec<char> = text.chars().collect();
                             let idx_usize = *idx as usize;
                             if idx_usize >= chars.len() {
-                                self.ip += offset;
+                                if let Some(frame) = self.frames.last_mut() {
+                                    frame.ip += offset;
+                                }
                             } else {
                                 let ch = chars[idx_usize];
                                 let next_index = (idx_usize + 1) as i64;
@@ -534,18 +577,24 @@ impl VM {
                 }
                 OpCode::OpLoop => {
                     let offset = self.read_u16();
-                    self.ip -= offset;
+                    if let Some(frame) = self.frames.last_mut() {
+                        frame.ip -= offset;
+                    }
                 }
                 OpCode::OpJumpIfFalse => {
                     let offset = self.read_u16();
                     let condition = self.peek(0).clone();
                     if !Self::is_truthy(&condition) {
-                        self.ip += offset;
+                        if let Some(frame) = self.frames.last_mut() {
+                            frame.ip += offset;
+                        }
                     }
                 }
                 OpCode::OpJump => {
                     let offset = self.read_u16();
-                    self.ip += offset;
+                    if let Some(frame) = self.frames.last_mut() {
+                        frame.ip += offset;
+                    }
                 }
                 OpCode::OpSetIndex => {
                     let value = self.pop();
@@ -601,7 +650,8 @@ impl VM {
                     self.push(Rc::new(ObjectType::Boolean(result)));
                 }
                 OpCode::OpSwap => {
-                    if self.stack_top < 2 {
+                    let base = self.frames.last().map(|frame| frame.slot + 1).unwrap_or(0);
+                    if self.stack_top < base + 2 {
                         return InterpretResult::RuntimeError;
                     }
                     self.stack.swap(self.stack_top - 1, self.stack_top - 2);
@@ -655,10 +705,90 @@ impl VM {
         }
     }
 
+    fn current_chunk(&self) -> &Chunk {
+        &self
+            .frames
+            .last()
+            .expect("expected active call frame")
+            .function
+            .chunk
+    }
+
+    fn read_byte(&mut self) -> u8 {
+        let frame = self.frames.last_mut().expect("expected active call frame");
+        let byte = frame.function.chunk.code[frame.ip];
+        frame.ip += 1;
+        byte
+    }
+
+    fn call_value(&mut self, arg_count: usize) -> bool {
+        if self.stack_top < arg_count + 1 {
+            return false;
+        }
+        let callee_index = self.stack_top - arg_count - 1;
+        let callee = self.stack[callee_index].clone();
+        match &*callee {
+            ObjectType::Function(function) => {
+                self.call_function(function.clone(), callee_index, arg_count)
+            }
+            _ => false,
+        }
+    }
+
+    fn call_function(
+        &mut self,
+        function: Rc<FunctionObject>,
+        callee_index: usize,
+        arg_count: usize,
+    ) -> bool {
+        if function.arity != arg_count {
+            return false;
+        }
+        if self.frames.len() >= FRAMES_MAX {
+            return false;
+        }
+
+        self.frames.push(CallFrame {
+            function,
+            ip: 0,
+            slot: callee_index,
+        });
+        true
+    }
+
+    fn handle_return(&mut self) -> bool {
+        let (frame_slot, frame_arity) = if let Some(frame) = self.frames.last() {
+            (frame.slot, frame.function.arity)
+        } else {
+            (0, 0)
+        };
+        let minimum_stack = frame_slot + frame_arity + 1;
+        let result = if self.stack_top > minimum_stack {
+            Some(self.pop())
+        } else {
+            None
+        };
+
+        self.frames.pop();
+        self.stack_top = frame_slot;
+
+        if self.frames.is_empty() {
+            if let Some(value) = result {
+                self.last_popped = value.clone();
+                self.push(value);
+            }
+            true
+        } else {
+            let value = result.unwrap_or_else(|| Rc::new(ObjectType::Nil));
+            self.last_popped = value.clone();
+            self.push(value);
+            false
+        }
+    }
+
     fn read_u16(&mut self) -> usize {
-        let high = self.chunk.code[self.ip] as usize;
-        let low = self.chunk.code[self.ip + 1] as usize;
-        self.ip += 2;
+        let high = self.read_byte() as usize;
+        let low = self.read_byte() as usize;
         (high << 8) | low
     }
 }

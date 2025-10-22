@@ -1,6 +1,6 @@
 use oxython::bytecode::{Chunk, OpCode};
 use oxython::compiler::Compiler;
-use oxython::object::ObjectType;
+use oxython::object::{FunctionObject, ObjectType};
 use oxython::vm::{InterpretResult, VM};
 use std::rc::Rc;
 
@@ -34,6 +34,47 @@ fn vm_adds_two_integers() {
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
     let top = vm.peek_stack().expect("expected value on stack");
     assert!(matches!(&*top, ObjectType::Integer(5)));
+}
+
+#[test]
+fn vm_calls_simple_function() {
+    let mut function_chunk = Chunk::new();
+    function_chunk.code.push(OpCode::OpGetLocal as u8);
+    function_chunk.code.push(1); // first argument
+    function_chunk.code.push(OpCode::OpGetLocal as u8);
+    function_chunk.code.push(2); // second argument
+    function_chunk.code.push(OpCode::OpAdd as u8);
+    function_chunk.code.push(OpCode::OpReturn as u8);
+
+    let function_obj = Rc::new(FunctionObject::new("add".to_string(), 2, function_chunk));
+
+    let mut chunk = Chunk::new();
+    let function_idx = push_constant(&mut chunk, ObjectType::Function(function_obj.clone()));
+    let name_idx = push_constant(&mut chunk, ObjectType::String("add".to_string()));
+    let one_idx = push_constant(&mut chunk, ObjectType::Integer(1));
+    let two_idx = push_constant(&mut chunk, ObjectType::Integer(2));
+
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(function_idx as u8);
+    chunk.code.push(OpCode::OpDefineGlobal as u8);
+    chunk.code.push(name_idx as u8);
+
+    chunk.code.push(OpCode::OpGetGlobal as u8);
+    chunk.code.push(name_idx as u8);
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(one_idx as u8);
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(two_idx as u8);
+    chunk.code.push(OpCode::OpCall as u8);
+    chunk.code.push(2);
+    chunk.code.push(OpCode::OpReturn as u8);
+
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+    assert!(matches!(
+        &*vm.last_popped_stack_elem(),
+        ObjectType::Integer(3)
+    ));
 }
 
 #[test]

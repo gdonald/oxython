@@ -1,3 +1,4 @@
+use crate::bytecode::Chunk;
 use std::fmt;
 use std::rc::Rc;
 
@@ -5,6 +6,26 @@ use std::rc::Rc;
 /// Using Rc allows multiple parts of the interpreter to "own" the same object,
 /// which is essential for a dynamically-typed language with variables and data structures.
 pub type Object = Rc<ObjectType>;
+
+/// Represents a compiled function object.
+#[derive(Clone, Debug)]
+pub struct FunctionObject {
+    pub name: String,
+    pub arity: usize,
+    pub chunk: Chunk,
+}
+
+impl FunctionObject {
+    pub fn new(name: String, arity: usize, chunk: Chunk) -> Self {
+        FunctionObject { name, arity, chunk }
+    }
+}
+
+impl PartialEq for FunctionObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.arity == other.arity
+    }
+}
 
 /// Represents all possible data types that can exist in the oxython language.
 /// By wrapping primitive Rust types, we create a unified object model.
@@ -17,6 +38,7 @@ pub enum ObjectType {
     List(Vec<Object>),
     Tuple(Vec<Object>),
     Dict(Vec<(String, Object)>),
+    Function(Rc<FunctionObject>),
     Nil,
 }
 
@@ -72,6 +94,7 @@ impl fmt::Display for ObjectType {
                 }
                 write!(f, "}}")
             }
+            ObjectType::Function(func) => write!(f, "<function {}>", func.name),
             ObjectType::Nil => write!(f, "nil"),
         }
     }
