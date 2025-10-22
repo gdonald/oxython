@@ -27,18 +27,18 @@ oxython is the Python programming language implemented in Rust.
     - [ ] First-Class Functions:
         - [ ] Syntax & Parsing: Extend the compiler to recognize `def name(args): ...` declarations and emit function objects via a new `MAKE_FUNCTION` opcode.
         - [ ] Call Frames: Introduce call stack frames in the VM with instruction pointers, stack bases, and local scopes; add `CALL`/`RETURN` opcodes.
-        - [ ] Locals & Scope: Support argument binding and function-local variables (global scope first, closures later).
+        - [ ] Locals & Scope: Support argument binding and function-local variables (global scope first).
         - [ ] Testing: Add compiler/VM unit tests covering function definition, invocation, and return values, plus example scripts that print function results.
+        - [ ] Closures & Nested Functions (Optional): Capture non-local variables via environment structures and update the compiler/VM so inner functions can reference outer scopes.
     - [x] Initial Execution Test: Connect the whole chain: Lexer $\rightarrow$ Compiler $\rightarrow$ VM. Compile a small script and run the resulting bytecode in the VM to verify functionality.
 
 - [ ] Object-Oriented Features & Types
     - [ ] Class Definition: Implement a `Class` structure in the runtime that stores fields (data attributes) and methods (bytecode functions).
     - [ ] Instance Creation: Implement the bytecode instruction (`NEW_OBJECT`) and VM logic to create an instance of a class, which is an `Object` referencing its class definition.
-    - [ ] Method Dispatch: Implement the logic for calling a method on an object (`CALL_METHOD` opcode). The VM must look up the method's name within the object's class definition.
-    - [ ] Method Binding & `self`: Ensure functions defined in class bodies are stored as methods and automatically bind the instance as the first argument during calls.
     - [ ] Attribute Access: Add opcodes for `GET_ATTR`/`SET_ATTR`, instance dictionaries, and class method tables with resolution order.
+    - [ ] Method Binding & `self`: Ensure functions defined in class bodies are stored as methods and automatically bind the instance as the first argument during calls.
+    - [ ] Method Dispatch: Implement the logic for calling a method on an object (`CALL_METHOD` opcode) using the lookup rules established above.
     - [ ] Construction Flow: Support calling a class to create instances and execute `__init__` on the new object.
-    - [ ] Closure Support (Optional): Capture non-local variables via environment structures and update the compiler/VM for nested functions.
     - [ ] Inheritance & Advanced Behavior (Stretch): Implement single inheritance, `super()`, and special methods such as `__str__`/`__iter__`.
     - [ ] Optional Type System: Implement a basic structure that allows the programmer to *annotate* variables or function arguments with types, but allows the compiler to skip strict checking if no type is provided.
 
