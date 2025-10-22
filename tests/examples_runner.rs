@@ -110,8 +110,8 @@ fn run_primes_under_fifty() {
     );
 }
 
-// #[test]
-// fn run_zip_merger() {
-//     let output = run_example("examples/zip_merger.py");
-//     assert_eq!(output, "[('Ann', 88), ('Ben', 93)]\n");
-// }
+#[test]
+fn run_zip_merger() {
+    let output = run_example("examples/zip_merger.py");
+    assert_eq!(output, "[('Ann', 88), ('Ben', 93)]\n");
+}

@@ -1,6 +1,6 @@
 # oxython
 
-oxython is the Python language implemented in Rust.
+oxython is the Python programming language implemented in Rust.
 
 ![CI](https://github.com/gdonald/oxython/workflows/CI/badge.svg) [![codecov](https://codecov.io/gh/gdonald/oxython/graph/badge.svg?token=GQ4LA1VMRE)](https://codecov.io/gh/gdonald/oxython)
 

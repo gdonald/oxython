@@ -15,6 +15,7 @@ pub enum ObjectType {
     String(String),
     Boolean(bool),
     List(Vec<Object>),
+    Tuple(Vec<Object>),
     Dict(Vec<(String, Object)>),
     Nil,
 }
@@ -38,9 +39,28 @@ impl fmt::Display for ObjectType {
                     if index > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", value)?;
+                    match &**value {
+                        ObjectType::String(text) => write!(f, "'{}'", text)?,
+                        _ => write!(f, "{}", value)?,
+                    }
                 }
                 write!(f, "]")
+            }
+            ObjectType::Tuple(values) => {
+                write!(f, "(")?;
+                for (index, value) in values.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+                    match &**value {
+                        ObjectType::String(text) => write!(f, "'{}'", text)?,
+                        _ => write!(f, "{}", value)?,
+                    }
+                }
+                if values.len() == 1 {
+                    write!(f, ",")?;
+                }
+                write!(f, ")")
             }
             ObjectType::Dict(entries) => {
                 write!(f, "{{")?;

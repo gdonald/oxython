@@ -208,7 +208,8 @@ impl VM {
                     let collection = self.pop();
 
                     match (&*collection, &*index) {
-                        (ObjectType::List(values), ObjectType::Integer(idx)) => {
+                        (ObjectType::List(values), ObjectType::Integer(idx))
+                        | (ObjectType::Tuple(values), ObjectType::Integer(idx)) => {
                             let mut idx_isize = *idx as isize;
                             let len = values.len() as isize;
                             if idx_isize < 0 {
@@ -236,6 +237,9 @@ impl VM {
                     let value = self.pop();
                     match &*value {
                         ObjectType::List(values) => {
+                            self.push(Rc::new(ObjectType::Integer(values.len() as i64)));
+                        }
+                        ObjectType::Tuple(values) => {
                             self.push(Rc::new(ObjectType::Integer(values.len() as i64)));
                         }
                         ObjectType::String(text) => {
@@ -471,7 +475,7 @@ impl VM {
                         for iterable in &iterables {
                             row.push(iterable[idx].clone());
                         }
-                        zipped.push(Rc::new(ObjectType::List(row)));
+                        zipped.push(Rc::new(ObjectType::Tuple(row)));
                     }
 
                     self.push(Rc::new(ObjectType::List(zipped)));
@@ -490,7 +494,8 @@ impl VM {
                     let collection = self.pop();
 
                     match (&*collection, &*index) {
-                        (ObjectType::List(values), ObjectType::Integer(idx)) => {
+                        (ObjectType::List(values), ObjectType::Integer(idx))
+                        | (ObjectType::Tuple(values), ObjectType::Integer(idx)) => {
                             if *idx < 0 {
                                 return InterpretResult::RuntimeError;
                             }
@@ -584,7 +589,7 @@ impl VM {
                         (ObjectType::Dict(entries), ObjectType::String(key)) => {
                             entries.iter().any(|(existing_key, _)| existing_key == key)
                         }
-                        (ObjectType::List(values), _) => {
+                        (ObjectType::List(values), _) | (ObjectType::Tuple(values), _) => {
                             values.iter().any(|element| **element == *item)
                         }
                         (ObjectType::String(text), ObjectType::String(pattern)) => {
@@ -640,6 +645,7 @@ impl VM {
     fn collect_iterable(value: &Object) -> Option<Vec<Object>> {
         match &**value {
             ObjectType::List(elements) => Some(elements.clone()),
+            ObjectType::Tuple(elements) => Some(elements.clone()),
             ObjectType::String(text) => Some(
                 text.chars()
                     .map(|ch| Rc::new(ObjectType::String(ch.to_string())))
