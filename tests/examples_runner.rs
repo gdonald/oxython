@@ -101,14 +101,14 @@ fn run_palindrome_check() {
     assert_eq!(output, "True\n");
 }
 
-// #[test]
-// fn run_primes_under_fifty() {
-//     let output = run_example("examples/primes_under_fifty.py");
-//     assert_eq!(
-//         output,
-//         "[2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]\n"
-//     );
-// }
+#[test]
+fn run_primes_under_fifty() {
+    let output = run_example("examples/primes_under_fifty.py");
+    assert_eq!(
+        output,
+        "[2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]\n"
+    );
+}
 
 // #[test]
 // fn run_zip_merger() {

@@ -6,9 +6,12 @@ use std::rc::Rc;
 
 pub struct Compiler<'a> {
     lexer: Lexer<'a, Token>,
+    source: &'a str,
     chunk: Chunk,
     had_error: bool,
     list_comp_counter: usize,
+    loop_stack: Vec<LoopContext>,
+    current_indent: usize,
 }
 
 enum AssignmentKind {
@@ -27,13 +30,35 @@ enum ComprehensionEnd {
     RParen,
 }
 
+struct LoopContext {
+    break_jumps: Vec<usize>,
+    cleanup_depth: usize,
+}
+
+impl LoopContext {
+    fn new(cleanup_depth: usize) -> Self {
+        LoopContext {
+            break_jumps: Vec::new(),
+            cleanup_depth,
+        }
+    }
+}
+
+struct TokenInfo {
+    indent: usize,
+    start: usize,
+}
+
 impl<'a> Compiler<'a> {
     pub fn compile(source: &'a str) -> Option<Chunk> {
         let mut compiler = Compiler {
             lexer: Token::lexer(source),
+            source,
             chunk: Chunk::new(),
             had_error: false,
             list_comp_counter: 0,
+            loop_stack: Vec::new(),
+            current_indent: 0,
         };
 
         // Loop until we run out of tokens
@@ -63,29 +88,134 @@ impl<'a> Compiler<'a> {
         Some(compiler.chunk)
     }
 
+    fn peek_token_with_indent(&self) -> Option<(Result<Token, ()>, TokenInfo)> {
+        let mut lookahead = self.lexer.clone();
+        let token = lookahead.next()?;
+        let span = lookahead.span();
+        let indent = self.indent_at(span.start);
+        Some((
+            token,
+            TokenInfo {
+                indent,
+                start: span.start,
+            },
+        ))
+    }
+
+    fn indent_at(&self, position: usize) -> usize {
+        let line_start = self.source[..position]
+            .rfind('\n')
+            .map(|idx| idx + 1)
+            .unwrap_or(0);
+        let mut indent = 0;
+        for ch in self.source[line_start..position].chars() {
+            match ch {
+                ' ' => indent += 1,
+                '\t' => indent += 4,
+                _ => break,
+            }
+        }
+        indent
+    }
+
     fn parse_statement(&mut self) {
-        if let Some(Ok(token)) = self.lexer.clone().next() {
-            match token {
-                Token::Print => self.parse_print_statement(),
-                Token::For => self.parse_for_statement(),
-                Token::While => self.parse_while_statement(),
-                Token::If => self.parse_if_statement(),
-                Token::Semicolon => {
-                    self.lexer.next(); // Consume stray semicolons.
+        let (token_result, info) = match self.peek_token_with_indent() {
+            Some(value) => value,
+            None => return,
+        };
+
+        self.current_indent = info.indent;
+
+        let token = match token_result {
+            Ok(token) => token,
+            Err(_) => {
+                self.lexer.next(); // Consume the unknown token.
+                self.had_error = true;
+                return;
+            }
+        };
+
+        match token {
+            Token::Print => self.parse_print_statement(),
+            Token::For => self.parse_for_statement(),
+            Token::While => self.parse_while_statement(),
+            Token::If => self.parse_if_statement(),
+            Token::Break => self.parse_break_statement(),
+            Token::Semicolon => {
+                self.lexer.next(); // Consume stray semicolons.
+            }
+            Token::Unknown => {
+                self.lexer.next(); // Skip unrecognized tokens to prevent infinite loops.
+                self.had_error = true;
+            }
+            Token::Identifier(_) => {
+                if let Some(kind) = self.detect_assignment_kind() {
+                    self.parse_assignment_statement(kind);
+                } else {
+                    self.parse_expression_statement(true);
                 }
-                Token::Unknown => {
-                    self.lexer.next(); // Skip unrecognized tokens to prevent infinite loops.
+            }
+            _ => self.parse_expression_statement(true),
+        }
+    }
+
+    fn has_newline_between(&self, start: usize, end: usize) -> bool {
+        self.source[start..end].chars().any(|ch| ch == '\n')
+    }
+
+    fn parse_suite(&mut self, parent_indent: usize, colon_end: usize) -> bool {
+        let Some((token_result, info)) = self.peek_token_with_indent() else {
+            return false;
+        };
+
+        let inline = !self.has_newline_between(colon_end, info.start);
+
+        if inline {
+            match token_result {
+                Ok(_) => {
+                    self.parse_statement();
+                    !self.had_error
+                }
+                Err(_) => {
+                    self.lexer.next();
                     self.had_error = true;
+                    false
                 }
-                Token::Identifier(_) => {
-                    if let Some(kind) = self.detect_assignment_kind() {
-                        self.parse_assignment_statement(kind);
-                    } else {
-                        self.parse_expression_statement(true);
+            }
+        } else {
+            if info.indent <= parent_indent {
+                self.had_error = true;
+                return false;
+            }
+
+            let mut had_statement = false;
+
+            while let Some((token_result, next_info)) = self.peek_token_with_indent() {
+                if next_info.indent <= parent_indent {
+                    break;
+                }
+
+                match token_result {
+                    Ok(_) => {
+                        self.parse_statement();
+                        had_statement = true;
+                        if self.had_error {
+                            break;
+                        }
+                    }
+                    Err(_) => {
+                        self.lexer.next();
+                        self.had_error = true;
+                        break;
                     }
                 }
-                _ => self.parse_expression_statement(true),
+
+                if self.had_error {
+                    break;
+                }
             }
+
+            had_statement
         }
     }
 
@@ -169,6 +299,8 @@ impl<'a> Compiler<'a> {
     fn parse_for_statement(&mut self) {
         self.lexer.next(); // Consume 'for'
 
+        let loop_indent = self.current_indent;
+
         let loop_var = if let Some(Ok(Token::Identifier(name))) = self.lexer.next() {
             name
         } else {
@@ -193,10 +325,12 @@ impl<'a> Compiler<'a> {
             return;
         }
 
-        if self.lexer.next() != Some(Ok(Token::Colon)) {
+        let colon_end = if let Some(Ok(Token::Colon)) = self.lexer.next() {
+            self.lexer.span().end
+        } else {
             self.had_error = true;
             return;
-        }
+        };
 
         let zero_idx = self.add_constant(Rc::new(ObjectType::Integer(0)));
         self.chunk.code.push(OpCode::OpConstant as u8);
@@ -212,51 +346,84 @@ impl<'a> Compiler<'a> {
         self.chunk.code.push(var_const_idx as u8);
         self.chunk.code.push(OpCode::OpPop as u8);
 
-        self.parse_statement();
+        self.loop_stack.push(LoopContext::new(2));
+        let body_had_statement = self.parse_suite(loop_indent, colon_end);
+        let context = self.loop_stack.pop().unwrap_or_else(|| LoopContext::new(2));
+
+        if !body_had_statement && !self.had_error {
+            self.had_error = true;
+        }
 
         self.emit_loop(loop_start);
         self.patch_jump(iter_jump_pos);
+
+        for jump in context.break_jumps {
+            self.patch_jump(jump);
+        }
     }
 
     fn parse_if_statement(&mut self) {
         self.lexer.next(); // Consume 'if'
+
+        let if_indent = self.current_indent;
 
         if !self.parse_expression() {
             self.had_error = true;
             return;
         }
 
-        if self.lexer.next() != Some(Ok(Token::Colon)) {
+        let colon_end = if let Some(Ok(Token::Colon)) = self.lexer.next() {
+            self.lexer.span().end
+        } else {
             self.had_error = true;
             return;
-        }
+        };
 
         let then_jump = self.emit_jump(OpCode::OpJumpIfFalse);
         self.chunk.code.push(OpCode::OpPop as u8);
 
-        self.parse_statement();
+        let then_had_statement = self.parse_suite(if_indent, colon_end);
+        if !then_had_statement && !self.had_error {
+            self.had_error = true;
+            return;
+        }
 
-        if self.lexer.clone().next() == Some(Ok(Token::Else)) {
+        let else_is_next = matches!(
+            self.peek_token_with_indent(),
+            Some((Ok(Token::Else), info)) if info.indent == if_indent
+        );
+
+        if else_is_next {
             let else_jump = self.emit_jump(OpCode::OpJump);
             self.patch_jump(then_jump);
             self.chunk.code.push(OpCode::OpPop as u8);
 
             self.lexer.next(); // Consume 'else'
-            if self.lexer.next() != Some(Ok(Token::Colon)) {
+            let else_colon_end = if let Some(Ok(Token::Colon)) = self.lexer.next() {
+                self.lexer.span().end
+            } else {
                 self.had_error = true;
                 return;
+            };
+
+            let else_had_statement = self.parse_suite(if_indent, else_colon_end);
+            if !else_had_statement && !self.had_error {
+                self.had_error = true;
             }
 
-            self.parse_statement();
             self.patch_jump(else_jump);
         } else {
+            let end_jump = self.emit_jump(OpCode::OpJump);
             self.patch_jump(then_jump);
             self.chunk.code.push(OpCode::OpPop as u8);
+            self.patch_jump(end_jump);
         }
     }
 
     fn parse_while_statement(&mut self) {
         self.lexer.next(); // Consume 'while'
+
+        let loop_indent = self.current_indent;
 
         let loop_start = self.chunk.code.len();
 
@@ -265,19 +432,52 @@ impl<'a> Compiler<'a> {
             return;
         }
 
-        if self.lexer.next() != Some(Ok(Token::Colon)) {
+        let colon_end = if let Some(Ok(Token::Colon)) = self.lexer.next() {
+            self.lexer.span().end
+        } else {
             self.had_error = true;
             return;
-        }
+        };
 
         let exit_jump = self.emit_jump(OpCode::OpJumpIfFalse);
         self.chunk.code.push(OpCode::OpPop as u8);
 
-        self.parse_statement();
+        self.loop_stack.push(LoopContext::new(0));
+        let body_had_statement = self.parse_suite(loop_indent, colon_end);
+        let context = self.loop_stack.pop().unwrap_or_else(|| LoopContext::new(0));
+
+        if !body_had_statement && !self.had_error {
+            self.had_error = true;
+        }
 
         self.emit_loop(loop_start);
         self.patch_jump(exit_jump);
         self.chunk.code.push(OpCode::OpPop as u8);
+
+        for jump in context.break_jumps {
+            self.patch_jump(jump);
+        }
+    }
+
+    fn parse_break_statement(&mut self) {
+        self.lexer.next(); // Consume 'break'
+
+        let cleanup_depth = if let Some(context) = self.loop_stack.last() {
+            context.cleanup_depth
+        } else {
+            self.had_error = true;
+            return;
+        };
+
+        for _ in 0..cleanup_depth {
+            self.chunk.code.push(OpCode::OpPop as u8);
+        }
+
+        let jump_pos = self.emit_jump(OpCode::OpJump);
+
+        if let Some(context) = self.loop_stack.last_mut() {
+            context.break_jumps.push(jump_pos);
+        }
     }
 
     fn parse_expression(&mut self) -> bool {
@@ -356,6 +556,18 @@ impl<'a> Compiler<'a> {
             }
             Token::Integer(val) => {
                 let const_idx = self.add_constant(Rc::new(ObjectType::Integer(val)));
+                self.chunk.code.push(OpCode::OpConstant as u8);
+                self.chunk.code.push(const_idx as u8);
+                true
+            }
+            Token::True => {
+                let const_idx = self.add_constant(Rc::new(ObjectType::Boolean(true)));
+                self.chunk.code.push(OpCode::OpConstant as u8);
+                self.chunk.code.push(const_idx as u8);
+                true
+            }
+            Token::False => {
+                let const_idx = self.add_constant(Rc::new(ObjectType::Boolean(false)));
                 self.chunk.code.push(OpCode::OpConstant as u8);
                 self.chunk.code.push(const_idx as u8);
                 true

@@ -37,6 +37,15 @@ pub enum Token {
     #[token("else")]
     Else,
 
+    #[token("break")]
+    Break,
+
+    #[token("True")]
+    True,
+
+    #[token("False")]
+    False,
+
     #[token("in")]
     In,
 
