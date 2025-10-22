@@ -68,6 +68,12 @@ pub enum OpCode {
     OpToList,
     /// Zips multiple iterables together.
     OpZip,
+    /// Converts a string to lowercase.
+    OpStrLower,
+    /// Returns whether a string is alphanumeric.
+    OpStrIsAlnum,
+    /// Joins an iterable of strings using the separator string.
+    OpStrJoin,
 }
 
 impl From<u8> for OpCode {
@@ -105,6 +111,9 @@ impl From<u8> for OpCode {
             29 => OpCode::OpEqual,
             30 => OpCode::OpToList,
             31 => OpCode::OpZip,
+            32 => OpCode::OpStrLower,
+            33 => OpCode::OpStrIsAlnum,
+            34 => OpCode::OpStrJoin,
             _ => panic!("Invalid opcode: {}", byte),
         }
     }

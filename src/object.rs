@@ -25,7 +25,13 @@ impl fmt::Display for ObjectType {
             ObjectType::Integer(val) => write!(f, "{}", val),
             ObjectType::Float(val) => write!(f, "{}", val),
             ObjectType::String(val) => write!(f, "{}", val),
-            ObjectType::Boolean(val) => write!(f, "{}", val),
+            ObjectType::Boolean(val) => {
+                if *val {
+                    write!(f, "True")
+                } else {
+                    write!(f, "False")
+                }
+            }
             ObjectType::List(values) => {
                 write!(f, "[")?;
                 for (index, value) in values.iter().enumerate() {

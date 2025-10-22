@@ -309,6 +309,7 @@ impl VM {
                     self.push(Rc::new(ObjectType::Boolean(result)));
                 }
                 OpCode::OpSlice => {
+                    let step = self.pop();
                     let end = self.pop();
                     let start = self.pop();
                     let collection = self.pop();
@@ -325,32 +326,81 @@ impl VM {
                         _ => return InterpretResult::RuntimeError,
                     };
 
+                    let step_value = match &*step {
+                        ObjectType::Integer(v) => *v,
+                        ObjectType::Nil => 1,
+                        _ => return InterpretResult::RuntimeError,
+                    };
+
+                    if step_value == 0 {
+                        return InterpretResult::RuntimeError;
+                    }
+
                     match &*collection {
                         ObjectType::List(values) => {
-                            let len = values.len();
-                            let start_normalized = normalize_start(start_idx, len);
-                            let end_normalized = normalize_end(end_idx, len);
-
-                            if end_normalized < start_normalized {
-                                self.push(Rc::new(ObjectType::List(Vec::new())));
-                            } else {
-                                let slice: Vec<Object> =
-                                    values[start_normalized..end_normalized].to_vec();
-                                self.push(Rc::new(ObjectType::List(slice)));
-                            }
+                            let indices =
+                                match slice_indices(values.len(), start_idx, end_idx, step_value) {
+                                    Some(idxs) => idxs,
+                                    None => return InterpretResult::RuntimeError,
+                                };
+                            let slice: Vec<Object> =
+                                indices.into_iter().map(|idx| values[idx].clone()).collect();
+                            self.push(Rc::new(ObjectType::List(slice)));
                         }
                         ObjectType::String(text) => {
                             let chars: Vec<char> = text.chars().collect();
-                            let len = chars.len();
-                            let start_normalized = normalize_start(start_idx, len);
-                            let end_normalized = normalize_end(end_idx, len);
-
-                            let slice: String = if end_normalized < start_normalized {
-                                String::new()
-                            } else {
-                                chars[start_normalized..end_normalized].iter().collect()
-                            };
+                            let indices =
+                                match slice_indices(chars.len(), start_idx, end_idx, step_value) {
+                                    Some(idxs) => idxs,
+                                    None => return InterpretResult::RuntimeError,
+                                };
+                            let slice: String = indices.into_iter().map(|idx| chars[idx]).collect();
                             self.push(Rc::new(ObjectType::String(slice)));
+                        }
+                        _ => return InterpretResult::RuntimeError,
+                    }
+                }
+                OpCode::OpStrLower => {
+                    let value = self.pop();
+                    match &*value {
+                        ObjectType::String(text) => {
+                            self.push(Rc::new(ObjectType::String(text.to_lowercase())));
+                        }
+                        _ => return InterpretResult::RuntimeError,
+                    }
+                }
+                OpCode::OpStrIsAlnum => {
+                    let value = self.pop();
+                    match &*value {
+                        ObjectType::String(text) => {
+                            let is_alnum =
+                                !text.is_empty() && text.chars().all(|ch| ch.is_alphanumeric());
+                            self.push(Rc::new(ObjectType::Boolean(is_alnum)));
+                        }
+                        _ => return InterpretResult::RuntimeError,
+                    }
+                }
+                OpCode::OpStrJoin => {
+                    let iterable = self.pop();
+                    let separator = self.pop();
+
+                    match (&*separator, &*iterable) {
+                        (ObjectType::String(sep), ObjectType::List(values)) => {
+                            let mut parts = Vec::with_capacity(values.len());
+                            for value in values {
+                                match &**value {
+                                    ObjectType::String(text) => parts.push(text.clone()),
+                                    _ => return InterpretResult::RuntimeError,
+                                }
+                            }
+                            let joined = parts.join(sep);
+                            self.push(Rc::new(ObjectType::String(joined)));
+                        }
+                        (ObjectType::String(sep), ObjectType::String(text)) => {
+                            let chars: Vec<String> =
+                                text.chars().map(|ch| ch.to_string()).collect();
+                            let joined = chars.join(sep);
+                            self.push(Rc::new(ObjectType::String(joined)));
                         }
                         _ => return InterpretResult::RuntimeError,
                     }
@@ -607,25 +657,86 @@ impl VM {
     }
 }
 
-fn normalize_start(index: Option<i64>, len: usize) -> usize {
-    normalize_index(index, len, 0)
+fn slice_indices(
+    len: usize,
+    start: Option<i64>,
+    end: Option<i64>,
+    step: i64,
+) -> Option<Vec<usize>> {
+    if step == 0 {
+        return None;
+    }
+
+    if len == 0 {
+        return Some(Vec::new());
+    }
+
+    let len_isize = len as isize;
+    let step_isize = step as isize;
+    let step_positive = step_isize > 0;
+
+    let start_idx = adjust_index(start, len_isize, false, step_positive);
+    let end_idx = adjust_index(end, len_isize, true, step_positive);
+
+    let mut indices = Vec::new();
+
+    if step_positive {
+        let mut idx = start_idx;
+        while idx < end_idx {
+            if idx >= 0 && idx < len_isize {
+                indices.push(idx as usize);
+            }
+            idx += step_isize;
+        }
+    } else {
+        let mut idx = start_idx;
+        while idx > end_idx {
+            if idx >= 0 && idx < len_isize {
+                indices.push(idx as usize);
+            }
+            idx += step_isize;
+        }
+    }
+
+    Some(indices)
 }
 
-fn normalize_end(index: Option<i64>, len: usize) -> usize {
-    normalize_index(index, len, len as i64)
-}
-
-fn normalize_index(index: Option<i64>, len: usize, default: i64) -> usize {
+fn adjust_index(index: Option<i64>, len: isize, is_end: bool, step_positive: bool) -> isize {
     let len_i64 = len as i64;
-    let mut value = index.unwrap_or(default);
-    if value < 0 {
-        value += len_i64;
+    match index {
+        Some(mut value) => {
+            if value < 0 {
+                value += len_i64;
+            }
+            if step_positive {
+                if value < 0 {
+                    value = 0;
+                }
+                if value > len_i64 {
+                    value = len_i64;
+                }
+            } else {
+                if value < -1 {
+                    value = -1;
+                }
+                if value >= len_i64 {
+                    value = len_i64 - 1;
+                }
+            }
+            value as isize
+        }
+        None => {
+            if step_positive {
+                if is_end {
+                    len
+                } else {
+                    0
+                }
+            } else if is_end || len_i64 <= 0 {
+                -1
+            } else {
+                len - 1
+            }
+        }
     }
-    if value < 0 {
-        value = 0;
-    }
-    if value > len_i64 {
-        value = len_i64;
-    }
-    value as usize
 }

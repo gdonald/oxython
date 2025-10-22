@@ -324,6 +324,8 @@ fn vm_builds_list_slice() {
     let end_idx = push_constant(&mut chunk, ObjectType::Integer(2));
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(end_idx as u8);
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(nil_idx as u8);
     chunk.code.push(OpCode::OpSlice as u8);
     chunk.code.push(OpCode::OpReturn as u8);
 
@@ -355,6 +357,8 @@ fn vm_slice_with_negative_start_and_default_end() {
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(start_idx as u8);
     let nil_idx = push_constant(&mut chunk, ObjectType::Nil);
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(nil_idx as u8);
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(nil_idx as u8);
     chunk.code.push(OpCode::OpSlice as u8);
@@ -389,6 +393,9 @@ fn vm_slice_returns_empty_when_end_before_start() {
     let end_idx = push_constant(&mut chunk, ObjectType::Integer(1));
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(end_idx as u8);
+    let nil_idx = push_constant(&mut chunk, ObjectType::Nil);
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(nil_idx as u8);
     chunk.code.push(OpCode::OpSlice as u8);
     chunk.code.push(OpCode::OpReturn as u8);
 
@@ -828,6 +835,8 @@ fn vm_slice_errors_on_invalid_start_type() {
     let nil_idx = push_constant(&mut chunk, ObjectType::Nil);
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(nil_idx as u8);
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(nil_idx as u8);
     chunk.code.push(OpCode::OpSlice as u8);
     chunk.code.push(OpCode::OpReturn as u8);
 
@@ -850,6 +859,8 @@ fn vm_slice_errors_on_invalid_end_type() {
     let bad_idx = push_constant(&mut chunk, ObjectType::String("bad".into()));
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(bad_idx as u8);
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(nil_idx as u8);
     chunk.code.push(OpCode::OpSlice as u8);
     chunk.code.push(OpCode::OpReturn as u8);
 
@@ -864,6 +875,8 @@ fn vm_slice_errors_on_non_sliceable_type() {
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(int_idx as u8);
     let nil_idx = push_constant(&mut chunk, ObjectType::Nil);
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(nil_idx as u8);
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(nil_idx as u8);
     chunk.code.push(OpCode::OpConstant as u8);
@@ -887,6 +900,9 @@ fn vm_slice_string() {
     let end_idx = push_constant(&mut chunk, ObjectType::Integer(4));
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(end_idx as u8);
+    let nil_idx = push_constant(&mut chunk, ObjectType::Nil);
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(nil_idx as u8);
     chunk.code.push(OpCode::OpSlice as u8);
     chunk.code.push(OpCode::OpReturn as u8);
 
@@ -908,6 +924,9 @@ fn vm_slice_string_empty_when_end_before_start() {
     let end_idx = push_constant(&mut chunk, ObjectType::Integer(1));
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(end_idx as u8);
+    let nil_idx = push_constant(&mut chunk, ObjectType::Nil);
+    chunk.code.push(OpCode::OpConstant as u8);
+    chunk.code.push(nil_idx as u8);
     chunk.code.push(OpCode::OpSlice as u8);
     chunk.code.push(OpCode::OpReturn as u8);
 

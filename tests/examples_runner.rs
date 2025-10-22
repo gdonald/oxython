@@ -1,4 +1,3 @@
-// use std::path::PathBuf;
 use std::process::Command;
 
 fn run_example(path: &str) -> String {
@@ -96,11 +95,11 @@ fn run_matrix_transpose() {
     assert_eq!(output, "[[1, 4], [2, 5], [3, 6]]\n");
 }
 
-// #[test]
-// fn run_palindrome_check() {
-//     let output = run_example("examples/palindrome_check.py");
-//     assert_eq!(output, "True\n");
-// }
+#[test]
+fn run_palindrome_check() {
+    let output = run_example("examples/palindrome_check.py");
+    assert_eq!(output, "True\n");
+}
 
 // #[test]
 // fn run_primes_under_fifty() {

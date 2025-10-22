@@ -22,6 +22,11 @@ enum FStringSegment {
     Identifier(String),
 }
 
+enum ComprehensionEnd {
+    RBracket,
+    RParen,
+}
+
 impl<'a> Compiler<'a> {
     pub fn compile(source: &'a str) -> Option<Chunk> {
         let mut compiler = Compiler {
@@ -424,110 +429,14 @@ impl<'a> Compiler<'a> {
                     let const_idx = self.add_constant(Rc::new(ObjectType::String(name.clone())));
                     self.chunk.code.push(OpCode::OpGetGlobal as u8);
                     self.chunk.code.push(const_idx as u8);
-
-                    let mut base_name_idx = Some(const_idx);
-                    loop {
-                        match self.lexer.clone().next() {
-                            Some(Ok(Token::LBracket)) => {
-                                self.lexer.next(); // consume '['
-                                base_name_idx = None; // no longer referring directly to the base name
-
-                                let mut start_pushed = false;
-
-                                if self.lexer.clone().next() != Some(Ok(Token::Colon)) {
-                                    if !self.parse_expression() {
-                                        self.had_error = true;
-                                        return false;
-                                    }
-                                    start_pushed = true;
-                                }
-
-                                if self.lexer.clone().next() == Some(Ok(Token::Colon)) {
-                                    self.lexer.next(); // consume ':'
-
-                                    if !start_pushed {
-                                        let nil_idx = self.add_constant(Rc::new(ObjectType::Nil));
-                                        self.chunk.code.push(OpCode::OpConstant as u8);
-                                        self.chunk.code.push(nil_idx as u8);
-                                    }
-
-                                    if self.lexer.clone().next() == Some(Ok(Token::RBracket)) {
-                                        let nil_idx = self.add_constant(Rc::new(ObjectType::Nil));
-                                        self.chunk.code.push(OpCode::OpConstant as u8);
-                                        self.chunk.code.push(nil_idx as u8);
-                                    } else if !self.parse_expression() {
-                                        self.had_error = true;
-                                        return false;
-                                    }
-
-                                    if self.lexer.next() != Some(Ok(Token::RBracket)) {
-                                        self.had_error = true;
-                                        return false;
-                                    }
-
-                                    self.chunk.code.push(OpCode::OpSlice as u8);
-                                } else {
-                                    if self.lexer.next() != Some(Ok(Token::RBracket)) {
-                                        self.had_error = true;
-                                        return false;
-                                    }
-
-                                    self.chunk.code.push(OpCode::OpIndex as u8);
-                                }
-                            }
-                            Some(Ok(Token::Dot)) => {
-                                self.lexer.next(); // consume '.'
-                                let method = match self.lexer.next() {
-                                    Some(Ok(Token::Identifier(m))) => m,
-                                    _ => {
-                                        self.had_error = true;
-                                        return false;
-                                    }
-                                };
-
-                                if method == "append" {
-                                    if base_name_idx.is_none() {
-                                        self.had_error = true;
-                                        return false;
-                                    }
-
-                                    if self.lexer.next() != Some(Ok(Token::LParen)) {
-                                        self.had_error = true;
-                                        return false;
-                                    }
-
-                                    if !self.parse_expression() {
-                                        self.had_error = true;
-                                        return false;
-                                    }
-
-                                    if self.lexer.next() != Some(Ok(Token::RParen)) {
-                                        self.had_error = true;
-                                        return false;
-                                    }
-
-                                    self.chunk.code.push(OpCode::OpAppend as u8);
-                                    self.chunk.code.push(OpCode::OpSetGlobal as u8);
-                                    self.chunk
-                                        .code
-                                        .push(base_name_idx.expect("base variable index") as u8);
-                                } else {
-                                    self.had_error = true;
-                                    return false;
-                                }
-                            }
-                            _ => break,
-                        }
-                    }
-
-                    true
+                    self.parse_postfix(Some(const_idx))
                 }
             }
             Token::String(val) => {
                 let const_idx = self.add_constant(Rc::new(ObjectType::String(val)));
                 self.chunk.code.push(OpCode::OpConstant as u8);
                 self.chunk.code.push(const_idx as u8);
-                true
+                self.parse_postfix(None)
             }
             Token::Float(val) => {
                 let const_idx = self.add_constant(Rc::new(ObjectType::Float(val)));
@@ -559,6 +468,193 @@ impl<'a> Compiler<'a> {
             }
             _ => false, // Not a term, do nothing
         }
+    }
+
+    fn parse_postfix(&mut self, mut base_name_idx: Option<usize>) -> bool {
+        loop {
+            match self.lexer.clone().next() {
+                Some(Ok(Token::LBracket)) => {
+                    self.lexer.next(); // consume '['
+                    base_name_idx = None;
+
+                    let mut start_pushed = false;
+                    let next_token = self.lexer.clone().next();
+                    if next_token != Some(Ok(Token::Colon))
+                        && next_token != Some(Ok(Token::RBracket))
+                    {
+                        if !self.parse_expression() {
+                            self.had_error = true;
+                            return false;
+                        }
+                        start_pushed = true;
+                    }
+
+                    if self.lexer.clone().next() == Some(Ok(Token::Colon)) {
+                        self.lexer.next(); // consume ':'
+
+                        if !start_pushed {
+                            let nil_idx = self.add_constant(Rc::new(ObjectType::Nil));
+                            self.chunk.code.push(OpCode::OpConstant as u8);
+                            self.chunk.code.push(nil_idx as u8);
+                        }
+
+                        let mut end_pushed = false;
+                        match self.lexer.clone().next() {
+                            Some(Ok(Token::RBracket)) | Some(Ok(Token::Colon)) => {}
+                            _ => {
+                                if !self.parse_expression() {
+                                    self.had_error = true;
+                                    return false;
+                                }
+                                end_pushed = true;
+                            }
+                        }
+
+                        if !end_pushed {
+                            let nil_idx = self.add_constant(Rc::new(ObjectType::Nil));
+                            self.chunk.code.push(OpCode::OpConstant as u8);
+                            self.chunk.code.push(nil_idx as u8);
+                        }
+
+                        let mut step_pushed = false;
+                        if self.lexer.clone().next() == Some(Ok(Token::Colon)) {
+                            self.lexer.next(); // consume second ':'
+                            if self.lexer.clone().next() != Some(Ok(Token::RBracket)) {
+                                if !self.parse_expression() {
+                                    self.had_error = true;
+                                    return false;
+                                }
+                                step_pushed = true;
+                            }
+                        }
+
+                        if !step_pushed {
+                            let nil_idx = self.add_constant(Rc::new(ObjectType::Nil));
+                            self.chunk.code.push(OpCode::OpConstant as u8);
+                            self.chunk.code.push(nil_idx as u8);
+                        }
+
+                        if self.lexer.next() != Some(Ok(Token::RBracket)) {
+                            self.had_error = true;
+                            return false;
+                        }
+
+                        self.chunk.code.push(OpCode::OpSlice as u8);
+                    } else {
+                        if self.lexer.next() != Some(Ok(Token::RBracket)) {
+                            self.had_error = true;
+                            return false;
+                        }
+
+                        self.chunk.code.push(OpCode::OpIndex as u8);
+                    }
+                }
+                Some(Ok(Token::Dot)) => {
+                    self.lexer.next(); // consume '.'
+                    let method = match self.lexer.next() {
+                        Some(Ok(Token::Identifier(m))) => m,
+                        _ => {
+                            self.had_error = true;
+                            return false;
+                        }
+                    };
+
+                    match method.as_str() {
+                        "append" => {
+                            if base_name_idx.is_none() {
+                                self.had_error = true;
+                                return false;
+                            }
+                            if self.lexer.next() != Some(Ok(Token::LParen)) {
+                                self.had_error = true;
+                                return false;
+                            }
+                            if !self.parse_expression() {
+                                self.had_error = true;
+                                return false;
+                            }
+                            if self.lexer.next() != Some(Ok(Token::RParen)) {
+                                self.had_error = true;
+                                return false;
+                            }
+                            self.chunk.code.push(OpCode::OpAppend as u8);
+                            self.chunk.code.push(OpCode::OpSetGlobal as u8);
+                            self.chunk
+                                .code
+                                .push(base_name_idx.expect("base variable index") as u8);
+                        }
+                        "lower" => {
+                            if self.lexer.next() != Some(Ok(Token::LParen)) {
+                                self.had_error = true;
+                                return false;
+                            }
+                            if self.lexer.next() != Some(Ok(Token::RParen)) {
+                                self.had_error = true;
+                                return false;
+                            }
+                            self.chunk.code.push(OpCode::OpStrLower as u8);
+                            base_name_idx = None;
+                        }
+                        "isalnum" => {
+                            if self.lexer.next() != Some(Ok(Token::LParen)) {
+                                self.had_error = true;
+                                return false;
+                            }
+                            if self.lexer.next() != Some(Ok(Token::RParen)) {
+                                self.had_error = true;
+                                return false;
+                            }
+                            self.chunk.code.push(OpCode::OpStrIsAlnum as u8);
+                            base_name_idx = None;
+                        }
+                        "join" => {
+                            if !self.parse_join_call() {
+                                return false;
+                            }
+                            base_name_idx = None;
+                        }
+                        _ => {
+                            self.had_error = true;
+                            return false;
+                        }
+                    }
+                }
+                _ => break,
+            }
+        }
+
+        true
+    }
+
+    fn parse_join_call(&mut self) -> bool {
+        if self.lexer.next() != Some(Ok(Token::LParen)) {
+            self.had_error = true;
+            return false;
+        }
+
+        let arg_start = self.chunk.code.len();
+        if !self.parse_expression() {
+            self.had_error = true;
+            return false;
+        }
+        let arg_end = self.chunk.code.len();
+        let element_code = self.chunk.code[arg_start..arg_end].to_vec();
+        self.chunk.code.truncate(arg_start);
+
+        if self.lexer.clone().next() == Some(Ok(Token::For)) {
+            if !self.compile_comprehension(element_code, ComprehensionEnd::RParen) {
+                return false;
+            }
+        } else {
+            self.chunk.code.extend_from_slice(&element_code);
+            if self.lexer.next() != Some(Ok(Token::RParen)) {
+                self.had_error = true;
+                return false;
+            }
+        }
+
+        self.chunk.code.push(OpCode::OpStrJoin as u8);
+        true
     }
 
     fn parse_f_string_literal(&mut self) -> bool {
@@ -798,6 +894,14 @@ impl<'a> Compiler<'a> {
         let element_code = self.chunk.code[element_start..element_end].to_vec();
         self.chunk.code.truncate(element_start);
 
+        self.compile_comprehension(element_code, ComprehensionEnd::RBracket)
+    }
+
+    fn compile_comprehension(
+        &mut self,
+        element_code: Vec<u8>,
+        terminator: ComprehensionEnd,
+    ) -> bool {
         if self.lexer.next() != Some(Ok(Token::For)) {
             self.had_error = true;
             return false;
@@ -851,7 +955,12 @@ impl<'a> Compiler<'a> {
             None
         };
 
-        if self.lexer.next() != Some(Ok(Token::RBracket)) {
+        let expected_terminator = match terminator {
+            ComprehensionEnd::RBracket => Token::RBracket,
+            ComprehensionEnd::RParen => Token::RParen,
+        };
+
+        if self.lexer.next() != Some(Ok(expected_terminator)) {
             self.had_error = true;
             return false;
         }
