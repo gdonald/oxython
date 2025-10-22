@@ -115,3 +115,15 @@ fn run_zip_merger() {
     let output = run_example("examples/zip_merger.py");
     assert_eq!(output, "[('Ann', 88), ('Ben', 93)]\n");
 }
+
+// #[test]
+// fn run_class() {
+//     let output = run_example("examples/class.py");
+//     assert_eq!(output, "Hello, Ada!\n");
+// }
+
+// #[test]
+// fn run_function() {
+//     let output = run_example("examples/function.py");
+//     assert_eq!(output, "7\n");
+// }
