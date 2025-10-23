@@ -1,5 +1,5 @@
 use crate::bytecode::{Chunk, OpCode};
-use crate::object::{FunctionObject, Object, ObjectType};
+use crate::object::{FunctionPrototype, Object, ObjectType};
 use crate::token::Token;
 use logos::{Lexer, Logos};
 use std::rc::Rc;
@@ -310,14 +310,12 @@ impl<'a> Compiler<'a> {
             return;
         }
 
-        let function_value = Rc::new(ObjectType::Function(Rc::new(FunctionObject::new(
-            name.clone(),
-            parameters.len(),
-            function_chunk,
-        ))));
-        let function_const_idx = self.add_constant(function_value);
-        self.chunk.code.push(OpCode::OpConstant as u8);
-        self.chunk.code.push(function_const_idx as u8);
+        let prototype_value = Rc::new(ObjectType::FunctionPrototype(Rc::new(
+            FunctionPrototype::new(name.clone(), parameters.len(), function_chunk),
+        )));
+        let prototype_const_idx = self.add_constant(prototype_value);
+        self.chunk.code.push(OpCode::OpMakeFunction as u8);
+        self.chunk.code.push(prototype_const_idx as u8);
 
         let name_idx = self.add_constant(Rc::new(ObjectType::String(name)));
         self.chunk.code.push(OpCode::OpDefineGlobal as u8);

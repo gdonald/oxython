@@ -214,6 +214,19 @@ impl VM {
                         return InterpretResult::RuntimeError;
                     }
                 }
+                OpCode::OpMakeFunction => {
+                    let proto_idx = self.read_byte() as usize;
+                    let proto = match &*self.current_chunk().constants[proto_idx] {
+                        ObjectType::FunctionPrototype(proto) => proto.clone(),
+                        _ => return InterpretResult::RuntimeError,
+                    };
+                    let function = Rc::new(FunctionObject::new(
+                        proto.name.clone(),
+                        proto.arity,
+                        proto.chunk.clone(),
+                    ));
+                    self.push(Rc::new(ObjectType::Function(function)));
+                }
                 OpCode::OpGetLocal => {
                     let slot = self.read_byte() as usize;
                     if let Some(frame) = self.frames.last() {

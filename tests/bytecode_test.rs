@@ -30,6 +30,10 @@ fn test_opcode_from_u8() {
     assert_eq!(OpCode::from(25), OpCode::OpRange);
     assert_eq!(OpCode::from(26), OpCode::OpLess);
     assert_eq!(OpCode::from(27), OpCode::OpSlice);
+    assert_eq!(OpCode::from(35), OpCode::OpCall);
+    assert_eq!(OpCode::from(36), OpCode::OpGetLocal);
+    assert_eq!(OpCode::from(37), OpCode::OpSetLocal);
+    assert_eq!(OpCode::from(38), OpCode::OpMakeFunction);
 }
 
 #[test]

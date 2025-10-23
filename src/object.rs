@@ -27,6 +27,26 @@ impl PartialEq for FunctionObject {
     }
 }
 
+/// Prototype stored in constants that the VM turns into runtime function objects.
+#[derive(Clone, Debug)]
+pub struct FunctionPrototype {
+    pub name: String,
+    pub arity: usize,
+    pub chunk: Chunk,
+}
+
+impl FunctionPrototype {
+    pub fn new(name: String, arity: usize, chunk: Chunk) -> Self {
+        FunctionPrototype { name, arity, chunk }
+    }
+}
+
+impl PartialEq for FunctionPrototype {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.arity == other.arity
+    }
+}
+
 /// Represents all possible data types that can exist in the oxython language.
 /// By wrapping primitive Rust types, we create a unified object model.
 #[derive(Debug, PartialEq)]
@@ -38,6 +58,7 @@ pub enum ObjectType {
     List(Vec<Object>),
     Tuple(Vec<Object>),
     Dict(Vec<(String, Object)>),
+    FunctionPrototype(Rc<FunctionPrototype>),
     Function(Rc<FunctionObject>),
     Nil,
 }
@@ -94,6 +115,7 @@ impl fmt::Display for ObjectType {
                 }
                 write!(f, "}}")
             }
+            ObjectType::FunctionPrototype(proto) => write!(f, "<fn {}>", proto.name),
             ObjectType::Function(func) => write!(f, "<function {}>", func.name),
             ObjectType::Nil => write!(f, "nil"),
         }

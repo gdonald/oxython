@@ -16,7 +16,8 @@ fn opcodes(chunk: &Chunk) -> Vec<OpCode> {
             | OpCode::OpSetGlobal
             | OpCode::OpCall
             | OpCode::OpGetLocal
-            | OpCode::OpSetLocal => {
+            | OpCode::OpSetLocal
+            | OpCode::OpMakeFunction => {
                 ip += 1;
             }
             OpCode::OpIterNext | OpCode::OpLoop | OpCode::OpJumpIfFalse | OpCode::OpJump => {
@@ -60,13 +61,15 @@ fn compile_emits_add_and_pop_for_expression_statement() {
 }
 
 #[test]
-fn compile_function_definition_emits_function_object() {
+fn compile_function_definition_emits_prototype() {
     let chunk = Compiler::compile("def add(a, b): return a + b").expect("Expected chunk");
     assert!(chunk.constants.iter().any(|value| matches!(
         &**value,
-        ObjectType::Function(func) if func.name == "add" && func.arity == 2
+        ObjectType::FunctionPrototype(proto) if proto.name == "add" && proto.arity == 2
     )));
-    assert!(opcodes(&chunk).contains(&OpCode::OpDefineGlobal));
+    let ops = opcodes(&chunk);
+    assert!(ops.contains(&OpCode::OpMakeFunction));
+    assert!(ops.contains(&OpCode::OpDefineGlobal));
 }
 
 #[test]

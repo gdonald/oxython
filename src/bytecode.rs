@@ -80,6 +80,8 @@ pub enum OpCode {
     OpGetLocal,
     /// Updates the value of an existing local variable.
     OpSetLocal,
+    /// Creates a function object from a constant prototype.
+    OpMakeFunction,
 }
 
 impl From<u8> for OpCode {
@@ -123,6 +125,7 @@ impl From<u8> for OpCode {
             35 => OpCode::OpCall,
             36 => OpCode::OpGetLocal,
             37 => OpCode::OpSetLocal,
+            38 => OpCode::OpMakeFunction,
             _ => panic!("Invalid opcode: {}", byte),
         }
     }
