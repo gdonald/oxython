@@ -24,9 +24,9 @@ oxython is the Python programming language implemented in Rust.
     - [x] Simple Parser/Compiler: Implement a core module to read tokens and emit the `OpCode` vector (the bytecode), prioritizing simple implementation over a complex AST.
     - [x] Variable Management: Implement a basic symbol table to track local variables and assign them memory slots for use with `LOAD_VAR`/`STORE_VAR` opcodes.
     - [x] Function/Block Compilation: Implement logic to compile code blocks and functions, arranging their instructions sequentially and handling the necessary jump/return logic.
-    - [ ] First-Class Functions:
+- [ ] First-Class Functions:
         - [x] Syntax & Parsing: Extend the compiler to recognize `def name(args): ...` declarations and emit function objects via a new `MAKE_FUNCTION` opcode.
-        - [ ] Call Frames: Introduce call stack frames in the VM with instruction pointers, stack bases, and local scopes; add `CALL`/`RETURN` opcodes.
+        - [x] Call Frames: Introduce call stack frames in the VM with instruction pointers, stack bases, and local scopes; add `CALL`/`RETURN` opcodes.
         - [ ] Locals & Scope: Support argument binding and function-local variables (global scope first).
         - [ ] Testing: Add compiler/VM unit tests covering function definition, invocation, and return values, plus example scripts that print function results.
         - [ ] Closures & Nested Functions (Optional): Capture non-local variables via environment structures and update the compiler/VM so inner functions can reference outer scopes.
