@@ -122,6 +122,12 @@ fn run_function() {
     assert_eq!(output, "7\n");
 }
 
+#[test]
+fn run_locals_scope() {
+    let output = run_example("examples/locals_scope.py");
+    assert_eq!(output, "20\n[0, 2, 4, 6, 8]\n");
+}
+
 // #[test]
 // fn run_class() {
 //     let output = run_example("examples/class.py");

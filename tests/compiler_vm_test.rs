@@ -95,3 +95,77 @@ noop()
     assert_eq!(result, InterpretResult::Ok);
     assert_eq!(*last_popped, ObjectType::Nil);
 }
+
+#[test]
+fn test_function_with_local_variable() {
+    let source = "
+def compute(a):
+    b = a + 1
+    return b
+
+compute(4)
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(5));
+}
+
+#[test]
+fn test_function_uses_globals_without_leaking_locals() {
+    let source = "
+value = 10
+
+def use_locals(x):
+    temp = x + value
+    temp = temp * 2
+    return temp
+
+value = value + 5
+use_locals(5)
+value
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(15));
+}
+
+#[test]
+fn test_function_for_loop_local_variable() {
+    let source = "
+def sum_range(n):
+    total = 0
+    for i in range(0, n):
+        total = total + i
+    return total
+
+sum_range(5)
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(10));
+}
+
+#[test]
+fn test_function_list_comprehension_local_scope() {
+    let source = "
+def build_doubles(n):
+    return [i * 2 for i in range(0, n)]
+
+build_doubles(4)
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    match &*last_popped {
+        ObjectType::List(values) => {
+            let ints: Vec<i64> = values
+                .iter()
+                .map(|value| match &**value {
+                    ObjectType::Integer(v) => *v,
+                    other => panic!("expected integer in list, got {:?}", other),
+                })
+                .collect();
+            assert_eq!(ints, vec![0, 2, 4, 6]);
+        }
+        other => panic!("expected list result, got {:?}", other),
+    }
+}

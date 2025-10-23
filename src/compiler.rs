@@ -13,7 +13,7 @@ pub struct Compiler<'a> {
     loop_stack: Vec<LoopContext>,
     current_indent: usize,
     function_depth: usize,
-    parameter_stack: Vec<Vec<String>>,
+    function_scopes: Vec<FunctionScope>,
 }
 
 enum AssignmentKind {
@@ -51,6 +51,46 @@ struct TokenInfo {
     start: usize,
 }
 
+struct FunctionScope {
+    parameters: Vec<String>,
+    locals: Vec<String>,
+}
+
+impl FunctionScope {
+    fn new(parameters: Vec<String>) -> Self {
+        FunctionScope {
+            parameters,
+            locals: Vec::new(),
+        }
+    }
+
+    fn resolve(&self, name: &str) -> Option<usize> {
+        if let Some(idx) = self.parameters.iter().position(|param| param == name) {
+            return Some(idx + 1);
+        }
+
+        if let Some(idx) = self.locals.iter().position(|local| local == name) {
+            return Some(self.parameters.len() + 1 + idx);
+        }
+
+        None
+    }
+
+    fn declare(&mut self, name: String) -> (usize, bool) {
+        if let Some(idx) = self.parameters.iter().position(|param| param == &name) {
+            return (idx + 1, false);
+        }
+
+        if let Some(idx) = self.locals.iter().position(|local| local == &name) {
+            return (self.parameters.len() + 1 + idx, false);
+        }
+
+        self.locals.push(name);
+        let idx = self.locals.len() - 1;
+        (self.parameters.len() + 1 + idx, true)
+    }
+}
+
 impl<'a> Compiler<'a> {
     pub fn compile(source: &'a str) -> Option<Chunk> {
         let mut compiler = Compiler {
@@ -62,7 +102,7 @@ impl<'a> Compiler<'a> {
             loop_stack: Vec::new(),
             current_indent: 0,
             function_depth: 0,
-            parameter_stack: Vec::new(),
+            function_scopes: Vec::new(),
         };
 
         // Loop until we run out of tokens
@@ -286,13 +326,14 @@ impl<'a> Compiler<'a> {
         let outer_loop_stack = std::mem::take(&mut self.loop_stack);
         let parent_indent = self.current_indent;
 
-        self.parameter_stack.push(parameters.clone());
+        self.function_scopes
+            .push(FunctionScope::new(parameters.clone()));
         self.function_depth += 1;
 
         let body_had_statement = self.parse_suite(parent_indent, colon_end);
 
         self.function_depth -= 1;
-        self.parameter_stack.pop();
+        self.function_scopes.pop();
 
         if !body_had_statement && !self.had_error {
             self.had_error = true;
@@ -449,12 +490,41 @@ impl<'a> Compiler<'a> {
             return;
         }
 
-        let var_const_idx = self.add_constant(Rc::new(ObjectType::String(loop_var.clone())));
+        let mut loop_var_local = None;
+        let mut loop_var_const_idx = None;
+
+        if self.function_depth > 0 {
+            if let Some((idx, is_new)) = self.declare_local(loop_var.clone()) {
+                loop_var_local = Some(idx);
+                if is_new {
+                    self.emit_nil();
+                }
+            }
+            if self.had_error {
+                return;
+            }
+        }
+
+        if loop_var_local.is_none() {
+            loop_var_const_idx =
+                Some(self.add_constant(Rc::new(ObjectType::String(loop_var.clone()))));
+        }
+
         let nil_idx = self.add_constant(Rc::new(ObjectType::Nil));
         self.chunk.code.push(OpCode::OpConstant as u8);
         self.chunk.code.push(nil_idx as u8);
-        self.chunk.code.push(OpCode::OpDefineGlobal as u8);
-        self.chunk.code.push(var_const_idx as u8);
+        match loop_var_local {
+            Some(local_idx) => {
+                self.chunk.code.push(OpCode::OpSetLocal as u8);
+                self.chunk.code.push(local_idx as u8);
+                self.chunk.code.push(OpCode::OpPop as u8);
+            }
+            None => {
+                let name_idx = loop_var_const_idx.expect("global loop variable must have name");
+                self.chunk.code.push(OpCode::OpDefineGlobal as u8);
+                self.chunk.code.push(name_idx as u8);
+            }
+        }
 
         if !self.parse_expression() {
             self.had_error = true;
@@ -478,8 +548,17 @@ impl<'a> Compiler<'a> {
         self.chunk.code.push(0);
         self.chunk.code.push(0);
 
-        self.chunk.code.push(OpCode::OpSetGlobal as u8);
-        self.chunk.code.push(var_const_idx as u8);
+        match loop_var_local {
+            Some(local_idx) => {
+                self.chunk.code.push(OpCode::OpSetLocal as u8);
+                self.chunk.code.push(local_idx as u8);
+            }
+            None => {
+                let name_idx = loop_var_const_idx.expect("global loop variable must have name");
+                self.chunk.code.push(OpCode::OpSetGlobal as u8);
+                self.chunk.code.push(name_idx as u8);
+            }
+        }
         self.chunk.code.push(OpCode::OpPop as u8);
 
         self.loop_stack.push(LoopContext::new(2));
@@ -773,7 +852,7 @@ impl<'a> Compiler<'a> {
                     }
                     self.chunk.code.push(OpCode::OpRange as u8);
                     true
-                } else if let Some(local_index) = self.parameter_index(&name) {
+                } else if let Some(local_index) = self.resolve_local(&name) {
                     self.chunk.code.push(OpCode::OpGetLocal as u8);
                     self.chunk.code.push(local_index as u8);
                     self.parse_postfix(None)
@@ -1289,7 +1368,7 @@ impl<'a> Compiler<'a> {
 
     fn compile_comprehension(
         &mut self,
-        element_code: Vec<u8>,
+        mut element_code: Vec<u8>,
         terminator: ComprehensionEnd,
     ) -> bool {
         if self.lexer.next() != Some(Ok(Token::For)) {
@@ -1311,19 +1390,60 @@ impl<'a> Compiler<'a> {
         }
 
         let loop_var_idx = self.add_constant(Rc::new(ObjectType::String(loop_var.clone())));
+        let mut loop_var_local = None;
+        if self.function_depth > 0 {
+            if let Some((idx, is_new)) = self.declare_local(loop_var.clone()) {
+                loop_var_local = Some(idx);
+                if is_new {
+                    self.emit_nil();
+                }
+            }
+            if self.had_error {
+                return false;
+            }
+        }
+        let target_indices = self.constant_indices_for_string(&loop_var);
+        if let Some(local_idx) = loop_var_local {
+            self.rewrite_globals_to_local(&mut element_code, &target_indices, local_idx);
+        }
+
         let nil_idx = self.add_constant(Rc::new(ObjectType::Nil));
         self.chunk.code.push(OpCode::OpConstant as u8);
         self.chunk.code.push(nil_idx as u8);
-        self.chunk.code.push(OpCode::OpDefineGlobal as u8);
-        self.chunk.code.push(loop_var_idx as u8);
+        if let Some(local_idx) = loop_var_local {
+            self.chunk.code.push(OpCode::OpSetLocal as u8);
+            self.chunk.code.push(local_idx as u8);
+            self.chunk.code.push(OpCode::OpPop as u8);
+        } else {
+            self.chunk.code.push(OpCode::OpDefineGlobal as u8);
+            self.chunk.code.push(loop_var_idx as u8);
+        }
 
         let result_name = self.next_list_comp_result_name();
         let result_name_idx = self.add_constant(Rc::new(ObjectType::String(result_name.clone())));
+        let mut result_local = None;
+        if self.function_depth > 0 {
+            if let Some((idx, is_new)) = self.declare_local(result_name.clone()) {
+                result_local = Some(idx);
+                if is_new {
+                    self.emit_nil();
+                }
+            }
+            if self.had_error {
+                return false;
+            }
+        }
         let empty_list_idx = self.add_constant(Rc::new(ObjectType::List(Vec::new())));
         self.chunk.code.push(OpCode::OpConstant as u8);
         self.chunk.code.push(empty_list_idx as u8);
-        self.chunk.code.push(OpCode::OpDefineGlobal as u8);
-        self.chunk.code.push(result_name_idx as u8);
+        if let Some(local_idx) = result_local {
+            self.chunk.code.push(OpCode::OpSetLocal as u8);
+            self.chunk.code.push(local_idx as u8);
+            self.chunk.code.push(OpCode::OpPop as u8);
+        } else {
+            self.chunk.code.push(OpCode::OpDefineGlobal as u8);
+            self.chunk.code.push(result_name_idx as u8);
+        }
 
         if !self.parse_expression() {
             self.had_error = true;
@@ -1340,6 +1460,10 @@ impl<'a> Compiler<'a> {
             let filter_end = self.chunk.code.len();
             let code = self.chunk.code[filter_start..filter_end].to_vec();
             self.chunk.code.truncate(filter_start);
+            let mut code = code;
+            if let Some(local_idx) = loop_var_local {
+                self.rewrite_globals_to_local(&mut code, &target_indices, local_idx);
+            }
             Some(code)
         } else {
             None
@@ -1365,8 +1489,13 @@ impl<'a> Compiler<'a> {
         self.chunk.code.push(0);
         self.chunk.code.push(0);
 
-        self.chunk.code.push(OpCode::OpSetGlobal as u8);
-        self.chunk.code.push(loop_var_idx as u8);
+        if let Some(local_idx) = loop_var_local {
+            self.chunk.code.push(OpCode::OpSetLocal as u8);
+            self.chunk.code.push(local_idx as u8);
+        } else {
+            self.chunk.code.push(OpCode::OpSetGlobal as u8);
+            self.chunk.code.push(loop_var_idx as u8);
+        }
         self.chunk.code.push(OpCode::OpPop as u8);
 
         if let Some(code) = filter_code {
@@ -1374,12 +1503,22 @@ impl<'a> Compiler<'a> {
             let skip_append = self.emit_jump(OpCode::OpJumpIfFalse);
             self.chunk.code.push(OpCode::OpPop as u8);
 
-            self.chunk.code.push(OpCode::OpGetGlobal as u8);
-            self.chunk.code.push(result_name_idx as u8);
+            if let Some(local_idx) = result_local {
+                self.chunk.code.push(OpCode::OpGetLocal as u8);
+                self.chunk.code.push(local_idx as u8);
+            } else {
+                self.chunk.code.push(OpCode::OpGetGlobal as u8);
+                self.chunk.code.push(result_name_idx as u8);
+            }
             self.chunk.code.extend_from_slice(&element_code);
             self.chunk.code.push(OpCode::OpAppend as u8);
-            self.chunk.code.push(OpCode::OpSetGlobal as u8);
-            self.chunk.code.push(result_name_idx as u8);
+            if let Some(local_idx) = result_local {
+                self.chunk.code.push(OpCode::OpSetLocal as u8);
+                self.chunk.code.push(local_idx as u8);
+            } else {
+                self.chunk.code.push(OpCode::OpSetGlobal as u8);
+                self.chunk.code.push(result_name_idx as u8);
+            }
             self.chunk.code.push(OpCode::OpPop as u8);
 
             let after_append = self.emit_jump(OpCode::OpJump);
@@ -1387,20 +1526,35 @@ impl<'a> Compiler<'a> {
             self.chunk.code.push(OpCode::OpPop as u8);
             self.patch_jump(after_append);
         } else {
-            self.chunk.code.push(OpCode::OpGetGlobal as u8);
-            self.chunk.code.push(result_name_idx as u8);
+            if let Some(local_idx) = result_local {
+                self.chunk.code.push(OpCode::OpGetLocal as u8);
+                self.chunk.code.push(local_idx as u8);
+            } else {
+                self.chunk.code.push(OpCode::OpGetGlobal as u8);
+                self.chunk.code.push(result_name_idx as u8);
+            }
             self.chunk.code.extend_from_slice(&element_code);
             self.chunk.code.push(OpCode::OpAppend as u8);
-            self.chunk.code.push(OpCode::OpSetGlobal as u8);
-            self.chunk.code.push(result_name_idx as u8);
+            if let Some(local_idx) = result_local {
+                self.chunk.code.push(OpCode::OpSetLocal as u8);
+                self.chunk.code.push(local_idx as u8);
+            } else {
+                self.chunk.code.push(OpCode::OpSetGlobal as u8);
+                self.chunk.code.push(result_name_idx as u8);
+            }
             self.chunk.code.push(OpCode::OpPop as u8);
         }
 
         self.emit_loop(loop_start);
         self.patch_jump(iter_jump_pos);
 
-        self.chunk.code.push(OpCode::OpGetGlobal as u8);
-        self.chunk.code.push(result_name_idx as u8);
+        if let Some(local_idx) = result_local {
+            self.chunk.code.push(OpCode::OpGetLocal as u8);
+            self.chunk.code.push(local_idx as u8);
+        } else {
+            self.chunk.code.push(OpCode::OpGetGlobal as u8);
+            self.chunk.code.push(result_name_idx as u8);
+        }
 
         true
     }
@@ -1514,8 +1668,8 @@ impl<'a> Compiler<'a> {
         } else {
             return; // Should not happen
         };
+        let mut local_index = self.resolve_local(&name);
         let name_idx = self.add_constant(Rc::new(ObjectType::String(name.clone())));
-        let local_index = self.parameter_index(&name);
 
         let mut has_subscript = false;
         let mut index_expression_code: Option<Vec<u8>> = None;
@@ -1565,6 +1719,18 @@ impl<'a> Compiler<'a> {
                     self.emit_set_variable(name_idx, local_index);
                     self.chunk.code.push(OpCode::OpPop as u8);
                 } else {
+                    if self.function_depth > 0 && local_index.is_none() {
+                        if let Some((idx, is_new)) = self.declare_local(name.clone()) {
+                            local_index = Some(idx);
+                            if is_new {
+                                self.emit_nil();
+                            }
+                        }
+                        if self.had_error {
+                            return;
+                        }
+                    }
+
                     if !self.parse_expression() {
                         self.had_error = true;
                         return;
@@ -1574,6 +1740,11 @@ impl<'a> Compiler<'a> {
                 }
             }
             AssignmentKind::AddAssign | AssignmentKind::MultiplyAssign => {
+                if self.function_depth > 0 && local_index.is_none() && !has_subscript {
+                    self.had_error = true;
+                    return;
+                }
+
                 let expected_token = if matches!(kind, AssignmentKind::AddAssign) {
                     Token::PlusEqual
                 } else {
@@ -1637,13 +1808,21 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn parameter_index(&self, name: &str) -> Option<usize> {
-        self.parameter_stack.last().and_then(|params| {
-            params
-                .iter()
-                .position(|param| param == name)
-                .map(|idx| idx + 1)
-        })
+    fn resolve_local(&self, name: &str) -> Option<usize> {
+        self.function_scopes
+            .last()
+            .and_then(|scope| scope.resolve(name))
+    }
+
+    fn declare_local(&mut self, name: String) -> Option<(usize, bool)> {
+        let scope = self.function_scopes.last_mut()?;
+
+        if scope.parameters.len() + scope.locals.len() + 1 >= u8::MAX as usize {
+            self.had_error = true;
+            return None;
+        }
+
+        Some(scope.declare(name))
     }
 
     fn emit_nil(&mut self) {
@@ -1676,6 +1855,7 @@ impl<'a> Compiler<'a> {
         if let Some(local) = local_index {
             self.chunk.code.push(OpCode::OpSetLocal as u8);
             self.chunk.code.push(local as u8);
+            self.chunk.code.push(OpCode::OpPop as u8);
         } else {
             self.chunk.code.push(OpCode::OpDefineGlobal as u8);
             self.chunk.code.push(name_idx as u8);
@@ -1704,6 +1884,75 @@ impl<'a> Compiler<'a> {
         let jump = self.chunk.code.len() - (operand_index + 2);
         self.chunk.code[operand_index] = ((jump >> 8) & 0xff) as u8;
         self.chunk.code[operand_index + 1] = (jump & 0xff) as u8;
+    }
+
+    fn constant_indices_for_string(&self, name: &str) -> Vec<usize> {
+        self.chunk
+            .constants
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, value)| match &**value {
+                ObjectType::String(existing) if existing == name => Some(idx),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn rewrite_globals_to_local(
+        &self,
+        code: &mut [u8],
+        target_indices: &[usize],
+        local_slot: usize,
+    ) {
+        if target_indices.is_empty() {
+            return;
+        }
+
+        let mut i = 0;
+        while i < code.len() {
+            let opcode = OpCode::from(code[i]);
+            match opcode {
+                OpCode::OpGetGlobal => {
+                    if i + 1 < code.len() {
+                        let idx = code[i + 1] as usize;
+                        if target_indices.contains(&idx) {
+                            code[i] = OpCode::OpGetLocal as u8;
+                            code[i + 1] = local_slot as u8;
+                        }
+                    }
+                    i += 1 + 1;
+                }
+                OpCode::OpSetGlobal => {
+                    if i + 1 < code.len() {
+                        let idx = code[i + 1] as usize;
+                        if target_indices.contains(&idx) {
+                            code[i] = OpCode::OpSetLocal as u8;
+                            code[i + 1] = local_slot as u8;
+                        }
+                    }
+                    i += 1 + 1;
+                }
+                _ => {
+                    i += 1 + Self::opcode_operand_width(opcode);
+                }
+            }
+        }
+    }
+
+    fn opcode_operand_width(opcode: OpCode) -> usize {
+        match opcode {
+            OpCode::OpConstant
+            | OpCode::OpDefineGlobal
+            | OpCode::OpGetGlobal
+            | OpCode::OpSetGlobal
+            | OpCode::OpCall
+            | OpCode::OpGetLocal
+            | OpCode::OpSetLocal
+            | OpCode::OpMakeFunction => 1,
+            OpCode::OpIterNext | OpCode::OpLoop | OpCode::OpJumpIfFalse | OpCode::OpJump => 2,
+            OpCode::OpZip => 3,
+            _ => 0,
+        }
     }
 
     fn next_list_comp_result_name(&mut self) -> String {
