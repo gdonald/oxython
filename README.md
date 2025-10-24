@@ -25,12 +25,12 @@ oxython is the Python programming language implemented in Rust.
     - [x] Variable Management: Implement a basic symbol table to track local variables and assign them memory slots for use with `LOAD_VAR`/`STORE_VAR` opcodes.
     - [x] Function/Block Compilation: Implement logic to compile code blocks and functions, arranging their instructions sequentially and handling the necessary jump/return logic.
 - [ ] First-Class Functions:
-        - [x] Syntax & Parsing: Extend the compiler to recognize `def name(args): ...` declarations and emit function objects via a new `MAKE_FUNCTION` opcode.
-        - [x] Call Frames: Introduce call stack frames in the VM with instruction pointers, stack bases, and local scopes; add `CALL`/`RETURN` opcodes.
-        - [x] Locals & Scope: Support argument binding and function-local variables (global scope first).
-        - [x] Testing: Add compiler/VM unit tests covering function definition, invocation, and return values, plus example scripts that print function results.
-        - [x] Closures & Nested Functions: Capture non-local variables via environment structures and update the compiler/VM so inner functions can reference outer scopes.
-        - [ ] `nonlocal` Assignments: Expand semantics so nested functions can rebind variables declared in outer scopes once the keyword is available.
+    - [x] Syntax & Parsing: Extend the compiler to recognize `def name(args): ...` declarations and emit function objects via a new `MAKE_FUNCTION` opcode.
+    - [x] Call Frames: Introduce call stack frames in the VM with instruction pointers, stack bases, and local scopes; add `CALL`/`RETURN` opcodes.
+    - [x] Locals & Scope: Support argument binding and function-local variables (global scope first).
+    - [x] Testing: Add compiler/VM unit tests covering function definition, invocation, and return values, plus example scripts that print function results.
+    - [x] Closures & Nested Functions: Capture non-local variables via environment structures and update the compiler/VM so inner functions can reference outer scopes.
+    - [ ] `nonlocal` Assignments: Expand semantics so nested functions can rebind variables declared in outer scopes once the keyword is available.
     - [x] Initial Execution Test: Connect the whole chain: Lexer $\rightarrow$ Compiler $\rightarrow$ VM. Compile a small script and run the resulting bytecode in the VM to verify functionality.
 
 - [ ] Object-Oriented Features & Types
@@ -42,6 +42,19 @@ oxython is the Python programming language implemented in Rust.
     - [ ] Construction Flow: Support calling a class to create instances and execute `__init__` on the new object.
     - [ ] Inheritance & Advanced Behavior (Stretch): Implement single inheritance, `super()`, and special methods such as `__str__`/`__iter__`.
     - [ ] Optional Type System: Implement a basic structure that allows the programmer to *annotate* variables or function arguments with types, but allows the compiler to skip strict checking if no type is provided.
+
+- [ ] Module System
+    - [ ] Module Object: Define a `Module` runtime type that contains its own global namespace (symbol table) and metadata (name, file path).
+    - [ ] Import Syntax & Parsing: Extend the parser to recognize `import module`, `from module import name`, and `import module as alias` statements.
+    - [ ] File Loading: Implement the file system layer to locate and read `.py` files from disk based on module names and search paths (current directory, then standard library paths).
+    - [ ] Module Cache: Create a module registry/cache in the VM to store already-loaded modules by their fully qualified name, preventing redundant compilation and execution.
+    - [ ] Compilation & Initialization: When a module is imported, lex and compile its source into bytecode, then execute that bytecode in a fresh namespace to populate the module's globals.
+    - [ ] Import Opcodes: Add bytecode instructions (`IMPORT_MODULE`, `IMPORT_FROM`) so the compiler can emit import operations that the VM will execute at runtime.
+    - [ ] Namespace Binding: Implement the logic to bind imported names into the importing module's namespace (e.g., `import math` creates a local binding to the `math` module object).
+    - [ ] Attribute Access on Modules: Extend `GET_ATTR` to work on module objects, allowing code like `math.sqrt` to retrieve symbols from a module's namespace.
+    - [ ] Circular Import Detection: Add safeguards to detect and handle circular dependencies gracefully (e.g., by marking modules as "loading" and preventing infinite loops).
+    - [ ] Relative Imports (Optional): Support relative import syntax (`from . import sibling`, `from .. import parent`) for package-aware module resolution.
+    - [ ] Package Support (Optional): Implement package semantics with `__init__.py` files and hierarchical module namespaces (e.g., `package.submodule`).
 
 - [ ] JIT Compilation with LLVM
     - [ ] LLVM/Inkwell Setup: Set up the LLVM `Context`, `Module`, and `ExecutionEngine` using the `inkwell` crate to manage the JIT compilation process.
