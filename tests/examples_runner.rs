@@ -128,6 +128,12 @@ fn run_locals_scope() {
     assert_eq!(output, "20\n[0, 2, 4, 6, 8]\n");
 }
 
+#[test]
+fn run_closures_nested() {
+    let output = run_example("examples/closures_nested.py");
+    assert_eq!(output, "10\n12\n");
+}
+
 // #[test]
 // fn run_class() {
 //     let output = run_example("examples/class.py");

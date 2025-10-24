@@ -1,5 +1,6 @@
 use crate::bytecode::{Chunk, OpCode};
-use crate::object::{FunctionObject, Object, ObjectType};
+use crate::object::{FunctionObject, Object, ObjectType, Upvalue, UpvalueRef};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -18,6 +19,7 @@ pub struct VM {
     globals: HashMap<String, Object>,
     last_popped: Object,
     frames: Vec<CallFrame>,
+    open_upvalues: Vec<UpvalueRef>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -45,6 +47,7 @@ impl VM {
             globals: HashMap::new(),
             last_popped: default_obj,
             frames: Vec::new(),
+            open_upvalues: Vec::new(),
         }
     }
 
@@ -52,8 +55,14 @@ impl VM {
         self.stack_top = 0;
         self.frames.clear();
         self.last_popped = Rc::new(ObjectType::Nil);
+        self.open_upvalues.clear();
 
-        let script_function = Rc::new(FunctionObject::new("<script>".to_string(), 0, chunk));
+        let script_function = Rc::new(FunctionObject::new(
+            "<script>".to_string(),
+            0,
+            chunk,
+            Vec::new(),
+        ));
         self.push(Rc::new(ObjectType::Function(script_function.clone())));
         self.frames.push(CallFrame {
             function: script_function,
@@ -220,10 +229,30 @@ impl VM {
                         ObjectType::FunctionPrototype(proto) => proto.clone(),
                         _ => return InterpretResult::RuntimeError,
                     };
+                    let (frame_slot, parent_upvalues) = if let Some(frame) = self.frames.last() {
+                        (frame.slot, frame.function.upvalues.clone())
+                    } else {
+                        (0, Vec::new())
+                    };
+                    let mut captured: Vec<UpvalueRef> = Vec::with_capacity(proto.upvalues.len());
+                    for descriptor in proto.upvalues.iter() {
+                        if descriptor.is_local {
+                            let stack_index = frame_slot + descriptor.index;
+                            let upvalue = self.capture_upvalue(stack_index);
+                            captured.push(upvalue);
+                        } else {
+                            let upvalue = match parent_upvalues.get(descriptor.index) {
+                                Some(value) => value.clone(),
+                                None => return InterpretResult::RuntimeError,
+                            };
+                            captured.push(upvalue);
+                        }
+                    }
                     let function = Rc::new(FunctionObject::new(
                         proto.name.clone(),
                         proto.arity,
                         proto.chunk.clone(),
+                        captured,
                     ));
                     self.push(Rc::new(ObjectType::Function(function)));
                 }
@@ -243,6 +272,46 @@ impl VM {
                         let index = frame.slot + slot;
                         let value = self.peek(0).clone();
                         self.stack[index] = value;
+                    } else {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::OpGetUpvalue => {
+                    let slot = self.read_byte() as usize;
+                    let upvalue_ref = if let Some(frame) = self.frames.last() {
+                        frame.function.upvalues.get(slot).cloned()
+                    } else {
+                        None
+                    };
+                    if let Some(upvalue_ref) = upvalue_ref {
+                        let value = {
+                            let upvalue = upvalue_ref.borrow();
+                            if upvalue.is_closed {
+                                upvalue.closed.clone()
+                            } else {
+                                self.stack[upvalue.location].clone()
+                            }
+                        };
+                        self.push(value);
+                    } else {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::OpSetUpvalue => {
+                    let slot = self.read_byte() as usize;
+                    let value = self.peek(0).clone();
+                    let upvalue_ref = if let Some(frame) = self.frames.last() {
+                        frame.function.upvalues.get(slot).cloned()
+                    } else {
+                        None
+                    };
+                    if let Some(upvalue_ref) = upvalue_ref {
+                        let mut upvalue = upvalue_ref.borrow_mut();
+                        if upvalue.is_closed {
+                            upvalue.closed = value;
+                        } else {
+                            self.stack[upvalue.location] = value;
+                        }
                     } else {
                         return InterpretResult::RuntimeError;
                     }
@@ -782,6 +851,8 @@ impl VM {
             None
         };
 
+        self.close_upvalues(frame_slot);
+
         self.frames.pop();
         self.stack_top = frame_slot;
 
@@ -803,6 +874,38 @@ impl VM {
         let high = self.read_byte() as usize;
         let low = self.read_byte() as usize;
         (high << 8) | low
+    }
+
+    fn capture_upvalue(&mut self, index: usize) -> UpvalueRef {
+        for upvalue_ref in &self.open_upvalues {
+            let should_take = {
+                let upvalue = upvalue_ref.borrow();
+                !upvalue.is_closed && upvalue.location == index
+            };
+            if should_take {
+                return upvalue_ref.clone();
+            }
+        }
+
+        let upvalue = Rc::new(RefCell::new(Upvalue::new(index, Rc::new(ObjectType::Nil))));
+        self.open_upvalues.push(upvalue.clone());
+        upvalue
+    }
+
+    fn close_upvalues(&mut self, from_index: usize) {
+        let mut to_remove = Vec::new();
+        for (idx, upvalue_ref) in self.open_upvalues.iter().enumerate() {
+            let mut upvalue = upvalue_ref.borrow_mut();
+            if !upvalue.is_closed && upvalue.location >= from_index {
+                upvalue.closed = self.stack[upvalue.location].clone();
+                upvalue.is_closed = true;
+                to_remove.push(idx);
+            }
+        }
+
+        for idx in to_remove.into_iter().rev() {
+            self.open_upvalues.remove(idx);
+        }
     }
 }
 

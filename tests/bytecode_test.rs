@@ -30,10 +30,19 @@ fn test_opcode_from_u8() {
     assert_eq!(OpCode::from(25), OpCode::OpRange);
     assert_eq!(OpCode::from(26), OpCode::OpLess);
     assert_eq!(OpCode::from(27), OpCode::OpSlice);
+    assert_eq!(OpCode::from(28), OpCode::OpModulo);
+    assert_eq!(OpCode::from(29), OpCode::OpEqual);
+    assert_eq!(OpCode::from(30), OpCode::OpToList);
+    assert_eq!(OpCode::from(31), OpCode::OpZip);
+    assert_eq!(OpCode::from(32), OpCode::OpStrLower);
+    assert_eq!(OpCode::from(33), OpCode::OpStrIsAlnum);
+    assert_eq!(OpCode::from(34), OpCode::OpStrJoin);
     assert_eq!(OpCode::from(35), OpCode::OpCall);
     assert_eq!(OpCode::from(36), OpCode::OpGetLocal);
     assert_eq!(OpCode::from(37), OpCode::OpSetLocal);
-    assert_eq!(OpCode::from(38), OpCode::OpMakeFunction);
+    assert_eq!(OpCode::from(38), OpCode::OpGetUpvalue);
+    assert_eq!(OpCode::from(39), OpCode::OpSetUpvalue);
+    assert_eq!(OpCode::from(40), OpCode::OpMakeFunction);
 }
 
 #[test]

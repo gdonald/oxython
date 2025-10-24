@@ -46,7 +46,12 @@ fn vm_calls_simple_function() {
     function_chunk.code.push(OpCode::OpAdd as u8);
     function_chunk.code.push(OpCode::OpReturn as u8);
 
-    let function_obj = Rc::new(FunctionObject::new("add".to_string(), 2, function_chunk));
+    let function_obj = Rc::new(FunctionObject::new(
+        "add".to_string(),
+        2,
+        function_chunk,
+        Vec::new(),
+    ));
 
     let mut chunk = Chunk::new();
     let function_idx = push_constant(&mut chunk, ObjectType::Function(function_obj.clone()));
@@ -1318,6 +1323,26 @@ fn vm_last_popped_stack_elem_returns_value() {
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
     let last = vm.last_popped_stack_elem();
     assert!(matches!(&*last, ObjectType::Integer(42)));
+}
+
+#[test]
+fn vm_closure_captures_outer_locals() {
+    let source = r#"
+def outer():
+    value = 1
+    def inner():
+        return value
+    value = 2
+    return inner
+
+fn = outer()
+result = fn()
+"#;
+    let chunk = Compiler::compile(source).expect("expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+    let last = vm.last_popped_stack_elem();
+    assert!(matches!(&*last, ObjectType::Integer(2)));
 }
 
 #[test]

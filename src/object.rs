@@ -1,4 +1,5 @@
 use crate::bytecode::Chunk;
+use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -7,17 +8,50 @@ use std::rc::Rc;
 /// which is essential for a dynamically-typed language with variables and data structures.
 pub type Object = Rc<ObjectType>;
 
+/// Describes how a closure captures a variable from an outer scope.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UpvalueDescriptor {
+    pub is_local: bool,
+    pub index: usize,
+}
+
+/// Represents a live upvalue captured by a closure.
+#[derive(Debug)]
+pub struct Upvalue {
+    pub location: usize,
+    pub closed: Object,
+    pub is_closed: bool,
+}
+
+impl Upvalue {
+    pub fn new(location: usize, closed: Object) -> Self {
+        Upvalue {
+            location,
+            closed,
+            is_closed: false,
+        }
+    }
+}
+
+pub type UpvalueRef = Rc<RefCell<Upvalue>>;
+
 /// Represents a compiled function object.
 #[derive(Clone, Debug)]
 pub struct FunctionObject {
     pub name: String,
     pub arity: usize,
     pub chunk: Chunk,
+    pub upvalues: Vec<UpvalueRef>,
 }
 
 impl FunctionObject {
-    pub fn new(name: String, arity: usize, chunk: Chunk) -> Self {
-        FunctionObject { name, arity, chunk }
+    pub fn new(name: String, arity: usize, chunk: Chunk, upvalues: Vec<UpvalueRef>) -> Self {
+        FunctionObject {
+            name,
+            arity,
+            chunk,
+            upvalues,
+        }
     }
 }
 
@@ -33,17 +67,23 @@ pub struct FunctionPrototype {
     pub name: String,
     pub arity: usize,
     pub chunk: Chunk,
+    pub upvalues: Vec<UpvalueDescriptor>,
 }
 
 impl FunctionPrototype {
-    pub fn new(name: String, arity: usize, chunk: Chunk) -> Self {
-        FunctionPrototype { name, arity, chunk }
+    pub fn new(name: String, arity: usize, chunk: Chunk, upvalues: Vec<UpvalueDescriptor>) -> Self {
+        FunctionPrototype {
+            name,
+            arity,
+            chunk,
+            upvalues,
+        }
     }
 }
 
 impl PartialEq for FunctionPrototype {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.arity == other.arity
+        self.name == other.name && self.arity == other.arity && self.upvalues == other.upvalues
     }
 }
 

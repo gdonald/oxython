@@ -80,6 +80,10 @@ pub enum OpCode {
     OpGetLocal,
     /// Updates the value of an existing local variable.
     OpSetLocal,
+    /// Reads a captured variable from an enclosing scope.
+    OpGetUpvalue,
+    /// Updates a captured variable from an enclosing scope.
+    OpSetUpvalue,
     /// Creates a function object from a constant prototype.
     OpMakeFunction,
 }
@@ -125,7 +129,9 @@ impl From<u8> for OpCode {
             35 => OpCode::OpCall,
             36 => OpCode::OpGetLocal,
             37 => OpCode::OpSetLocal,
-            38 => OpCode::OpMakeFunction,
+            38 => OpCode::OpGetUpvalue,
+            39 => OpCode::OpSetUpvalue,
+            40 => OpCode::OpMakeFunction,
             _ => panic!("Invalid opcode: {}", byte),
         }
     }
