@@ -25,7 +25,7 @@ oxython is the Python programming language implemented in Rust.
     - [x] Variable Management: Implement a basic symbol table to track local variables and assign them memory slots for use with `LOAD_VAR`/`STORE_VAR` opcodes.
     - [x] Function/Block Compilation: Implement logic to compile code blocks and functions, arranging their instructions sequentially and handling the necessary jump/return logic.
 
-- [ ] First-Class Functions:
+- [x] First-Class Functions:
     - [x] Syntax & Parsing: Extend the compiler to recognize `def name(args): ...` declarations and emit function objects via a new `MAKE_FUNCTION` opcode.
     - [x] Call Frames: Introduce call stack frames in the VM with instruction pointers, stack bases, and local scopes; add `CALL`/`RETURN` opcodes.
     - [x] Locals & Scope: Support argument binding and function-local variables (global scope first).
@@ -56,6 +56,15 @@ oxython is the Python programming language implemented in Rust.
     - [ ] Circular Import Detection: Add safeguards to detect and handle circular dependencies gracefully (e.g., by marking modules as "loading" and preventing infinite loops).
     - [ ] Relative Imports (Optional): Support relative import syntax (`from . import sibling`, `from .. import parent`) for package-aware module resolution.
     - [ ] Package Support (Optional): Implement package semantics with `__init__.py` files and hierarchical module namespaces (e.g., `package.submodule`).
+
+- [ ] Advanced Function Features (Future Enhancements)
+    - [ ] Default Parameters: Support optional parameters with default values (e.g., `def func(a, b=10):`).
+    - [ ] Variable-Length Arguments: Implement `*args` to accept variable number of positional arguments.
+    - [ ] Keyword Arguments: Support `**kwargs` and named argument passing in function calls.
+    - [ ] Lambda Expressions: Add support for anonymous functions with `lambda` syntax.
+    - [ ] Decorators: Implement decorator syntax (`@decorator`) for function wrapping and metaprogramming.
+    - [ ] Generator Functions: Add `yield` keyword and generator protocol for lazy iteration.
+    - [ ] Function Introspection: Expose function metadata (`__name__`, `__code__`, `__defaults__`, etc.).
 
 - [ ] JIT Compilation with LLVM
     - [ ] LLVM/Inkwell Setup: Set up the LLVM `Context`, `Module`, and `ExecutionEngine` using the `inkwell` crate to manage the JIT compilation process.
