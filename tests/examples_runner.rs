@@ -134,6 +134,12 @@ fn run_closures_nested() {
     assert_eq!(output, "10\n12\n");
 }
 
+#[test]
+fn run_nonlocal_counter() {
+    let output = run_example("examples/nonlocal_counter.py");
+    assert_eq!(output, "1\n2\n3\n3\n0\n1\n");
+}
+
 // #[test]
 // fn run_class() {
 //     let output = run_example("examples/class.py");

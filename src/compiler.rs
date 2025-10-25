@@ -2,7 +2,7 @@ use crate::bytecode::{Chunk, OpCode};
 use crate::object::{FunctionPrototype, Object, ObjectType, UpvalueDescriptor};
 use crate::token::Token;
 use logos::{Lexer, Logos};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 pub struct Compiler<'a> {
@@ -64,6 +64,7 @@ struct FunctionScope {
     locals: Vec<String>,
     upvalues: Vec<UpvalueDescriptor>,
     upvalue_map: HashMap<String, usize>,
+    nonlocals: HashSet<String>,
 }
 
 impl FunctionScope {
@@ -73,6 +74,7 @@ impl FunctionScope {
             locals: Vec::new(),
             upvalues: Vec::new(),
             upvalue_map: HashMap::new(),
+            nonlocals: HashSet::new(),
         }
     }
 
@@ -214,6 +216,7 @@ impl<'a> Compiler<'a> {
             Token::Def => self.parse_function_statement(),
             Token::Return => self.parse_return_statement(),
             Token::Break => self.parse_break_statement(),
+            Token::Nonlocal => self.parse_nonlocal_statement(),
             Token::Semicolon => {
                 self.lexer.next(); // Consume stray semicolons.
             }
@@ -430,6 +433,43 @@ impl<'a> Compiler<'a> {
         }
 
         self.chunk.code.push(OpCode::OpReturn as u8);
+    }
+
+    fn parse_nonlocal_statement(&mut self) {
+        self.lexer.next(); // consume 'nonlocal'
+
+        if self.function_depth == 0 {
+            self.had_error = true;
+            return;
+        }
+
+        // Parse comma-separated list of identifiers
+        loop {
+            match self.lexer.next() {
+                Some(Ok(Token::Identifier(name))) => {
+                    // Add to nonlocals set in current function scope
+                    // The variable doesn't need to exist yet - it will be resolved
+                    // when actually used or assigned
+                    if let Some(scope) = self.function_scopes.last_mut() {
+                        scope.nonlocals.insert(name);
+                    }
+                }
+                _ => {
+                    self.had_error = true;
+                    return;
+                }
+            }
+
+            // Check for comma (more variables) or end of statement
+            let mut lookahead = self.lexer.clone();
+            match lookahead.next() {
+                Some(Ok(Token::Comma)) => {
+                    self.lexer.next(); // consume comma
+                    continue;
+                }
+                _ => break,
+            }
+        }
     }
 
     fn detect_assignment_kind(&self) -> Option<AssignmentKind> {
@@ -1767,14 +1807,27 @@ impl<'a> Compiler<'a> {
                     self.chunk.code.push(OpCode::OpPop as u8);
                 } else {
                     if self.function_depth > 0 && matches!(target, VariableTarget::Global) {
-                        if let Some((idx, is_new)) = self.declare_local(name.clone()) {
-                            target = VariableTarget::Local(idx);
-                            if is_new {
-                                self.emit_nil();
+                        // Check if variable is declared as nonlocal
+                        let is_nonlocal = self
+                            .function_scopes
+                            .last()
+                            .map(|scope| scope.nonlocals.contains(&name))
+                            .unwrap_or(false);
+
+                        if !is_nonlocal {
+                            // Not nonlocal, so create as local variable
+                            if let Some((idx, is_new)) = self.declare_local(name.clone()) {
+                                target = VariableTarget::Local(idx);
+                                if is_new {
+                                    self.emit_nil();
+                                }
                             }
-                        }
-                        if self.had_error {
-                            return;
+                            if self.had_error {
+                                return;
+                            }
+                        } else {
+                            // Variable is nonlocal, re-resolve to get upvalue target
+                            target = self.resolve_variable(&name);
                         }
                     }
 

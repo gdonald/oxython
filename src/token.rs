@@ -46,6 +46,9 @@ pub enum Token {
     #[token("break")]
     Break,
 
+    #[token("nonlocal")]
+    Nonlocal,
+
     #[token("True")]
     True,
 
