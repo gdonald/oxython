@@ -8,7 +8,7 @@ fn it_works() {
 #[test]
 fn test_run_integers_example() {
     let output = Command::new("target/debug/oxython")
-        .arg("examples/integers.py")
+        .arg("examples/basics/integers.py")
         .output()
         .expect("Failed to execute command");
 
