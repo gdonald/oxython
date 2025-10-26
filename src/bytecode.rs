@@ -92,6 +92,8 @@ pub enum OpCode {
     OpGetAttr,
     /// Sets an attribute on an instance.
     OpSetAttr,
+    /// Sets the parent class for a class (used for inheritance).
+    OpInherit,
 }
 
 impl From<u8> for OpCode {
@@ -141,6 +143,7 @@ impl From<u8> for OpCode {
             41 => OpCode::OpMakeClass,
             42 => OpCode::OpGetAttr,
             43 => OpCode::OpSetAttr,
+            44 => OpCode::OpInherit,
             _ => panic!("Invalid opcode: {}", byte),
         }
     }

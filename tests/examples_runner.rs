@@ -165,3 +165,9 @@ fn run_class() {
     let output = run_example("examples/oop/class.py");
     assert_eq!(output, "Hello, Ada!\n");
 }
+
+#[test]
+fn run_inheritance() {
+    let output = run_example("examples/oop/inheritance.py");
+    assert_eq!(output, "Buddy says Woof!\nWhiskers says Meow!\n");
+}

@@ -1967,3 +1967,60 @@ fn vm_define_and_get_global() {
     let mut vm = VM::new();
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
 }
+
+#[test]
+fn vm_class_inheritance_basic() {
+    let source = r#"
+class Animal:
+    def speak(self):
+        return "sound"
+
+class Dog(Animal):
+    def bark(self):
+        return "woof"
+
+d = Dog()
+result = d.speak()
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn vm_class_inheritance_method_override() {
+    let source = r#"
+class Animal:
+    def speak(self):
+        return "generic sound"
+
+class Cat(Animal):
+    def speak(self):
+        return "meow"
+
+c = Cat()
+result = c.speak()
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn vm_class_inheritance_with_init() {
+    let source = r#"
+class Animal:
+    def __init__(self, name):
+        self.name = name
+
+class Dog(Animal):
+    def get_name(self):
+        return self.name
+
+d = Dog("Buddy")
+name = d.get_name()
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}

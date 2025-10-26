@@ -415,6 +415,26 @@ impl<'a> Compiler<'a> {
             }
         };
 
+        // Check for inheritance: class Child(Parent):
+        let has_parent = matches!(self.lexer.clone().next(), Some(Ok(Token::LParen)));
+        let parent_name = if has_parent {
+            self.lexer.next(); // consume '('
+            let parent = match self.lexer.next() {
+                Some(Ok(Token::Identifier(identifier))) => identifier,
+                _ => {
+                    self.had_error = true;
+                    return;
+                }
+            };
+            if self.lexer.next() != Some(Ok(Token::RParen)) {
+                self.had_error = true;
+                return;
+            }
+            Some(parent)
+        } else {
+            None
+        };
+
         let colon_end = if let Some(Ok(Token::Colon)) = self.lexer.next() {
             self.lexer.span().end
         } else {
@@ -587,6 +607,17 @@ impl<'a> Compiler<'a> {
         // Emit OpMakeClass with method count
         self.chunk.code.push(OpCode::OpMakeClass as u8);
         self.chunk.code.push(method_names.len() as u8);
+
+        // If there's a parent class, emit OpInherit
+        if let Some(parent_name) = parent_name {
+            // Get the parent class from globals
+            let parent_idx = self.add_constant(Rc::new(ObjectType::String(parent_name)));
+            self.chunk.code.push(OpCode::OpGetGlobal as u8);
+            self.chunk.code.push(parent_idx as u8);
+
+            // Now we have [class, parent] on stack
+            self.chunk.code.push(OpCode::OpInherit as u8);
+        }
 
         // Define class as global
         let define_name_idx = self.add_constant(Rc::new(ObjectType::String(class_name)));

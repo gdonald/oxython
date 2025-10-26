@@ -69,9 +69,9 @@ oxython is the Python programming language implemented in Rust.
         - [x] Enable `examples/oop/class.py` test in `examples_runner.rs`.
         - [x] Verify class definition, instance creation, attribute assignment (`self.name = name`), attribute access, and method calls work correctly.
         - [x] Add unit tests for class creation, instance creation, `__init__` execution, attribute get/set, and method dispatch.
-    - [ ] Inheritance & Advanced Behavior (Future)
-        - [ ] Single inheritance with parent class reference in `ClassObject`.
-        - [ ] Method resolution order (MRO) for attribute lookup through parent chain.
+    - [ ] Inheritance & Advanced Behavior
+        - [x] Single inheritance with parent class reference in `ClassObject`.
+        - [x] Method resolution order (MRO) for attribute lookup through parent chain.
         - [ ] `super()` builtin for calling parent methods.
         - [ ] Special methods: `__str__`, `__repr__`, `__iter__`, `__next__`, etc.
     - [ ] Optional Type System (Future): Implement a basic structure that allows the programmer to *annotate* variables or function arguments with types, but allows the compiler to skip strict checking if no type is provided.

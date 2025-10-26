@@ -797,8 +797,8 @@ impl VM {
                             // First check instance fields
                             if let Some(value) = instance.get_field(&attr_name) {
                                 self.push(value);
-                            } else if let Some(method) = instance.class.methods.get(&attr_name) {
-                                // Create a bound method
+                            } else if let Some(method) = instance.class.get_method(&attr_name) {
+                                // Create a bound method (using inheritance chain)
                                 let bound = Rc::new(ObjectType::BoundMethod(
                                     object.clone(),
                                     method.clone(),
@@ -809,8 +809,8 @@ impl VM {
                             }
                         }
                         ObjectType::Class(class) => {
-                            // Access method from class directly
-                            if let Some(method) = class.methods.get(&attr_name) {
+                            // Access method from class directly (using inheritance chain)
+                            if let Some(method) = class.get_method(&attr_name) {
                                 self.push(method.clone());
                             } else {
                                 return InterpretResult::RuntimeError;
@@ -835,6 +835,33 @@ impl VM {
                         }
                         _ => return InterpretResult::RuntimeError,
                     }
+                }
+                OpCode::OpInherit => {
+                    // Stack: [child_class, parent_class]
+                    let parent = self.pop();
+                    let child = self.pop();
+
+                    // Ensure parent is a class
+                    let parent_class = match &*parent {
+                        ObjectType::Class(class) => class.clone(),
+                        _ => return InterpretResult::RuntimeError,
+                    };
+
+                    // Ensure child is a class
+                    let child_class = match &*child {
+                        ObjectType::Class(class) => class,
+                        _ => return InterpretResult::RuntimeError,
+                    };
+
+                    // Create new class with parent set
+                    let new_child = Rc::new(ClassObject::new_with_parent(
+                        child_class.name.clone(),
+                        child_class.methods.clone(),
+                        parent_class,
+                    ));
+
+                    // Push the updated child class back
+                    self.push(Rc::new(ObjectType::Class(new_child)));
                 }
             }
         }
@@ -916,9 +943,9 @@ impl VM {
                 let instance = Rc::new(RefCell::new(InstanceObject::new(class.clone())));
                 let instance_obj = Rc::new(ObjectType::Instance(instance.clone()));
 
-                // Look for __init__ method
-                if let Some(init_method) = class.methods.get("__init__") {
-                    if let ObjectType::Function(init_func) = &**init_method {
+                // Look for __init__ method (traverses inheritance chain)
+                if let Some(init_method) = class.get_method("__init__") {
+                    if let ObjectType::Function(init_func) = &*init_method {
                         // Stack layout: [class, arg1, arg2, ...]
                         // We want: [instance, instance, arg1, arg2, ...] so that after __init__ returns,
                         // one instance remains

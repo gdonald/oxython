@@ -93,11 +93,43 @@ impl PartialEq for FunctionPrototype {
 pub struct ClassObject {
     pub name: String,
     pub methods: HashMap<String, Object>,
+    pub parent: Option<Rc<ClassObject>>,
 }
 
 impl ClassObject {
     pub fn new(name: String, methods: HashMap<String, Object>) -> Self {
-        ClassObject { name, methods }
+        ClassObject {
+            name,
+            methods,
+            parent: None,
+        }
+    }
+
+    pub fn new_with_parent(
+        name: String,
+        methods: HashMap<String, Object>,
+        parent: Rc<ClassObject>,
+    ) -> Self {
+        ClassObject {
+            name,
+            methods,
+            parent: Some(parent),
+        }
+    }
+
+    /// Looks up a method in this class or its parent chain
+    pub fn get_method(&self, name: &str) -> Option<Object> {
+        // First check this class's methods
+        if let Some(method) = self.methods.get(name) {
+            return Some(method.clone());
+        }
+
+        // Then check parent class if it exists
+        if let Some(ref parent) = self.parent {
+            return parent.get_method(name);
+        }
+
+        None
     }
 }
 
