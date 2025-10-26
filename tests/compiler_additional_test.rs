@@ -17,7 +17,9 @@ fn opcodes(chunk: &Chunk) -> Vec<OpCode> {
             | OpCode::OpCall
             | OpCode::OpGetLocal
             | OpCode::OpSetLocal
-            | OpCode::OpMakeFunction => {
+            | OpCode::OpMakeFunction
+            | OpCode::OpGetAttr
+            | OpCode::OpSetAttr => {
                 ip += 1;
             }
             OpCode::OpIterNext | OpCode::OpLoop | OpCode::OpJumpIfFalse | OpCode::OpJump => {
@@ -227,6 +229,7 @@ fn compile_string_concatenation() {
 #[test]
 fn compile_handles_list_append() {
     let chunk = Compiler::compile("values = [1, 2]; values.append(3)").expect("Expected chunk");
+    // Hardcoded append uses OpAppend
     assert_eq!(
         opcodes(&chunk),
         vec![
@@ -277,6 +280,7 @@ fn compile_handles_while_loop() {
     let ops = opcodes(&chunk);
     assert!(ops.iter().any(|op| matches!(op, OpCode::OpJumpIfFalse)));
     assert!(ops.iter().any(|op| matches!(op, OpCode::OpLoop)));
+    // Hardcoded append uses OpAppend
     assert!(ops.iter().any(|op| matches!(op, OpCode::OpAppend)));
 }
 
@@ -412,6 +416,7 @@ fn compile_errors_on_malformed_range_call_missing_rparen() {
 
 #[test]
 fn compile_errors_on_invalid_append_on_indexed_value() {
+    // Hardcoded append only works on variables, not indexed values
     assert!(Compiler::compile("items = [[1, 2]]; items[0].append(3)").is_none());
 }
 
@@ -427,7 +432,8 @@ fn compile_errors_on_append_missing_rparen() {
 
 #[test]
 fn compile_errors_on_unknown_method() {
-    assert!(Compiler::compile("items = [1, 2]; items.unknown()").is_none());
+    // Unknown methods now compile (runtime error instead)
+    assert!(Compiler::compile("items = [1, 2]; items.unknown()").is_some());
 }
 
 #[test]
@@ -672,6 +678,7 @@ fn compile_errors_on_range_missing_expression() {
 
 #[test]
 fn compile_errors_on_append_missing_expression() {
+    // Hardcoded append requires an argument
     assert!(Compiler::compile("items = [1, 2]; items.append()").is_none());
 }
 
@@ -879,8 +886,8 @@ fn compile_handles_function_call_expression() {
 
 #[test]
 fn compile_errors_on_identifier_with_dot_no_assignment() {
-    // Line 105: Dot after identifier with bracket_depth 0, but not append
-    assert!(Compiler::compile("x.y = 1").is_none());
+    // Attribute assignment is now supported with OpSetAttr
+    assert!(Compiler::compile("x.y = 1").is_some());
 }
 
 #[test]
@@ -1039,7 +1046,7 @@ fn compile_errors_on_index_multiply_assign_bad_value() {
 
 #[test]
 fn compile_errors_on_append_bad_lparen() {
-    // .append but no lparen
+    // .append requires parentheses with hardcoded handler
     assert!(Compiler::compile("items = [1]; items.append").is_none());
 }
 
@@ -1057,8 +1064,9 @@ fn compile_errors_on_append_no_rparen() {
 
 #[test]
 fn compile_errors_on_method_not_append() {
-    // Method call that's not append
-    assert!(Compiler::compile("items = [1]; items.other()").is_none());
+    // Any method call now compiles with general attribute access
+    // Runtime will determine if the method exists
+    assert!(Compiler::compile("items = [1]; items.other()").is_some());
 }
 
 #[test]
@@ -1343,7 +1351,7 @@ fn compile_successful_returns_chunk_with_return() {
 fn compile_single_statement_ok_branch() {
     // Lines 29-30: Ok branch in main loop
     let chunk = Compiler::compile("x = 42").expect("Expected chunk");
-    assert!(chunk.constants.len() > 0);
+    assert!(!chunk.constants.is_empty());
 }
 
 #[test]
@@ -1365,14 +1373,14 @@ fn compile_identifier_as_statement_not_assignment() {
 fn compile_non_identifier_expression_statement() {
     // Line 75: Non-identifier token as expression statement
     let chunk = Compiler::compile("42").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
 fn compile_lookahead_non_identifier_in_detect_assignment() {
     // Lines 83-84: Non-identifier in detect_assignment_kind lookahead
     let chunk = Compiler::compile("42").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1403,7 +1411,7 @@ fn compile_print_multiple_args_with_commas() {
 fn compile_print_ends_without_comma() {
     // Line 150: Print ends, first = false
     let chunk = Compiler::compile("print(1, 2)").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1632,7 +1640,7 @@ fn compile_identifier_postfix_index() {
 fn compile_line_56_token_match() {
     // Line 56: Match on token in parse_statement
     let chunk = Compiler::compile("print(1)").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1647,7 +1655,7 @@ fn compile_line_68_70_identifier_assignment() {
 fn compile_line_84_lookahead_non_identifier() {
     // Line 84: Return None when lookahead is not identifier
     let chunk = Compiler::compile("1 + 2").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1661,15 +1669,16 @@ fn compile_line_87_bracket_depth_loop() {
 #[test]
 fn compile_line_92_rbracket_depth_zero() {
     // Line 92: RBracket with bracket_depth > 0
-    let _chunk = Compiler::compile("items = [[1]]; items[0] = 2").is_some();
-    assert!(true); // Just ensure it doesn't crash
+    // Just ensure it doesn't crash
+    let result = Compiler::compile("items = [[1]]; items[0] = 2");
+    assert!(result.is_some());
 }
 
 #[test]
 fn compile_line_96_bracket_depth_decrement() {
     // Line 96: Decrement bracket depth
     let chunk = Compiler::compile("items = [1]; items[0] = 2").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1705,7 +1714,7 @@ fn compile_line_147_print_comma_printspaced() {
 fn compile_line_150_print_first_false() {
     // Line 150: first = false in print loop
     let chunk = Compiler::compile("print(1, 2, 3)").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1720,14 +1729,14 @@ fn compile_line_154_print_consume_rparen() {
 fn compile_line_161_for_identifier() {
     // Line 161: For loop with identifier
     let chunk = Compiler::compile("for x in [1]: print(x)").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
 fn compile_line_167_for_in_token() {
     // Line 167: For loop consumes 'in'
     let chunk = Compiler::compile("for i in [1, 2]: i = 3").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1742,7 +1751,7 @@ fn compile_line_172_177_for_nil_constant() {
 fn compile_line_179_for_parse_expression() {
     // Line 179: For loop parse expression
     let chunk = Compiler::compile("for x in [1, 2, 3]: print(x)").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1781,7 +1790,7 @@ fn compile_line_199_201_for_set_global_pop() {
 fn compile_line_203_for_parse_statement() {
     // Line 203: For loop parse statement
     let chunk = Compiler::compile("for x in [1]: y = 2").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1853,7 +1862,7 @@ fn compile_line_261_262_while_jump_pop() {
 fn compile_line_264_while_parse_statement() {
     // Line 264: While parse statement
     let chunk = Compiler::compile("while 1: x = 2").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1918,7 +1927,7 @@ fn compile_line_325_unary_minus() {
 fn compile_line_331_unary_recursive() {
     // Line 331: Recursive parse_term in unary
     let chunk = Compiler::compile("x = -5").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1945,7 +1954,7 @@ fn compile_line_360_361_len_emit() {
 fn compile_line_366_round_identifier() {
     // Line 366: round identifier
     let chunk = Compiler::compile("x = round(3.14, 2)").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1968,7 +1977,7 @@ fn compile_line_374_round_emit() {
 fn compile_line_380_381_range_identifier() {
     // Lines 380-381: range identifier
     let chunk = Compiler::compile("x = range(1, 5)").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -1991,7 +2000,7 @@ fn compile_line_392_identifier_name_get_global() {
 fn compile_line_394_identifier_postfix_check() {
     // Line 394: Identifier postfix check
     let chunk = Compiler::compile("items = [1]; x = items[0]").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]
@@ -2048,7 +2057,7 @@ fn compile_line_454_index_opcode() {
 
 #[test]
 fn compile_line_457_460_461_dot_method_identifier() {
-    // Lines 457, 460-461: Dot method parsing
+    // Lines 457, 460-461: Hardcoded append uses OpAppend
     let chunk = Compiler::compile("x = [1]; x.append(2)").expect("Expected chunk");
     let ops = opcodes(&chunk);
     assert!(ops.contains(&OpCode::OpAppend));
@@ -2056,7 +2065,7 @@ fn compile_line_457_460_461_dot_method_identifier() {
 
 #[test]
 fn compile_line_467_append_method() {
-    // Line 467: Method name check for "append"
+    // Line 467: Hardcoded append uses OpAppend
     let chunk = Compiler::compile("items = []; items.append(5)").expect("Expected chunk");
     let ops = opcodes(&chunk);
     assert!(ops.contains(&OpCode::OpAppend));
@@ -2064,7 +2073,7 @@ fn compile_line_467_append_method() {
 
 #[test]
 fn compile_line_473_append_missing_lparen() {
-    // Line 473: Missing LParen after append
+    // Hardcoded append requires parentheses
     assert!(Compiler::compile("x = []; x.append 5").is_none());
 }
 
@@ -2082,7 +2091,7 @@ fn compile_line_485_append_missing_rparen() {
 
 #[test]
 fn compile_line_488_492_append_opcodes() {
-    // Lines 488-492: OpAppend and OpSetGlobal
+    // Lines 488-492: Hardcoded append uses OpAppend + OpSetGlobal
     let chunk = Compiler::compile("lst = [1]; lst.append(2)").expect("Expected chunk");
     let ops = opcodes(&chunk);
     assert!(ops.contains(&OpCode::OpAppend));
@@ -2091,8 +2100,8 @@ fn compile_line_488_492_append_opcodes() {
 
 #[test]
 fn compile_line_495_invalid_method_name() {
-    // Line 495: Invalid method name (not "append")
-    assert!(Compiler::compile("x = []; x.invalid()").is_none());
+    // Line 495: Any method name now compiles with general attribute access
+    assert!(Compiler::compile("x = []; x.invalid()").is_some());
 }
 
 #[test]
@@ -2301,7 +2310,7 @@ fn compile_line_727_add_assign_subscript_opcodes() {
 fn compile_line_729_730_add_assign_subscript_missing_index_code() {
     // Lines 729-730: Missing index expression code (should not happen)
     let chunk = Compiler::compile("x = [1]; x[0] += 1").expect("Expected chunk");
-    assert!(chunk.code.len() > 0);
+    assert!(!chunk.code.is_empty());
 }
 
 #[test]

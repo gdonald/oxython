@@ -1,5 +1,7 @@
 use crate::bytecode::{Chunk, OpCode};
-use crate::object::{FunctionObject, Object, ObjectType, Upvalue, UpvalueRef};
+use crate::object::{
+    ClassObject, FunctionObject, InstanceObject, Object, ObjectType, Upvalue, UpvalueRef,
+};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -11,6 +13,7 @@ struct CallFrame {
     function: Rc<FunctionObject>,
     ip: usize,
     slot: usize,
+    instance_slot: Option<usize>, // For __init__ calls, where to find the instance to return
 }
 
 pub struct VM {
@@ -68,6 +71,7 @@ impl VM {
             function: script_function,
             ip: 0,
             slot: 0,
+            instance_slot: None,
         });
 
         self.run()
@@ -738,6 +742,100 @@ impl VM {
                     }
                     self.stack.swap(self.stack_top - 1, self.stack_top - 2);
                 }
+                OpCode::OpMakeClass => {
+                    let method_count = self.read_byte() as usize;
+
+                    // Pop class name
+                    let class_name = match &*self.pop() {
+                        ObjectType::String(name) => name.clone(),
+                        _ => return InterpretResult::RuntimeError,
+                    };
+
+                    // Pop method names (in reverse order)
+                    let mut method_names = Vec::with_capacity(method_count);
+                    for _ in 0..method_count {
+                        let method_name = match &*self.pop() {
+                            ObjectType::String(name) => name.clone(),
+                            _ => return InterpretResult::RuntimeError,
+                        };
+                        method_names.push(method_name);
+                    }
+
+                    // Method names are in reverse order, so reverse them back
+                    method_names.reverse();
+
+                    // Now pop method functions (they're below the names on stack)
+                    let mut method_funcs = Vec::with_capacity(method_count);
+                    for _ in 0..method_count {
+                        method_funcs.push(self.pop());
+                    }
+
+                    // Functions are in reverse order too
+                    method_funcs.reverse();
+
+                    // Pair up names and functions
+                    let mut methods = HashMap::new();
+                    for (name, func) in method_names.into_iter().zip(method_funcs.into_iter()) {
+                        methods.insert(name, func);
+                    }
+
+                    let class = Rc::new(ClassObject::new(class_name, methods));
+                    self.push(Rc::new(ObjectType::Class(class)));
+                }
+                OpCode::OpGetAttr => {
+                    let attr_idx = self.read_byte() as usize;
+                    let attr_name = match &*self.current_chunk().constants[attr_idx] {
+                        ObjectType::String(name) => name.clone(),
+                        _ => return InterpretResult::RuntimeError,
+                    };
+
+                    let object = self.pop();
+                    match &*object {
+                        ObjectType::Instance(instance_ref) => {
+                            let instance = instance_ref.borrow();
+
+                            // First check instance fields
+                            if let Some(value) = instance.get_field(&attr_name) {
+                                self.push(value);
+                            } else if let Some(method) = instance.class.methods.get(&attr_name) {
+                                // Create a bound method
+                                let bound = Rc::new(ObjectType::BoundMethod(
+                                    object.clone(),
+                                    method.clone(),
+                                ));
+                                self.push(bound);
+                            } else {
+                                return InterpretResult::RuntimeError;
+                            }
+                        }
+                        ObjectType::Class(class) => {
+                            // Access method from class directly
+                            if let Some(method) = class.methods.get(&attr_name) {
+                                self.push(method.clone());
+                            } else {
+                                return InterpretResult::RuntimeError;
+                            }
+                        }
+                        _ => return InterpretResult::RuntimeError,
+                    }
+                }
+                OpCode::OpSetAttr => {
+                    let attr_idx = self.read_byte() as usize;
+                    let attr_name = match &*self.current_chunk().constants[attr_idx] {
+                        ObjectType::String(name) => name.clone(),
+                        _ => return InterpretResult::RuntimeError,
+                    };
+
+                    let value = self.pop();
+                    let object = self.pop();
+
+                    match &*object {
+                        ObjectType::Instance(instance_ref) => {
+                            instance_ref.borrow_mut().set_field(attr_name, value);
+                        }
+                        _ => return InterpretResult::RuntimeError,
+                    }
+                }
             }
         }
     }
@@ -811,7 +909,73 @@ impl VM {
         let callee = self.stack[callee_index].clone();
         match &*callee {
             ObjectType::Function(function) => {
-                self.call_function(function.clone(), callee_index, arg_count)
+                self.call_function(function.clone(), callee_index, arg_count, None)
+            }
+            ObjectType::Class(class) => {
+                // Create instance
+                let instance = Rc::new(RefCell::new(InstanceObject::new(class.clone())));
+                let instance_obj = Rc::new(ObjectType::Instance(instance.clone()));
+
+                // Look for __init__ method
+                if let Some(init_method) = class.methods.get("__init__") {
+                    if let ObjectType::Function(init_func) = &**init_method {
+                        // Stack layout: [class, arg1, arg2, ...]
+                        // We want: [instance, instance, arg1, arg2, ...] so that after __init__ returns,
+                        // one instance remains
+
+                        // Push instance at the callee position
+                        self.stack[callee_index] = instance_obj.clone();
+
+                        // Insert instance as self parameter
+                        // Shift arguments up by one to make room for self
+                        for i in (callee_index + 1..self.stack_top).rev() {
+                            self.stack[i + 1] = self.stack[i].clone();
+                        }
+                        self.stack[callee_index + 1] = instance_obj.clone();
+                        self.stack_top += 1;
+
+                        // Save instance beyond the call frame so it doesn't get overwritten
+                        self.stack[self.stack_top] = instance_obj.clone();
+                        let saved_instance_slot = self.stack_top;
+                        self.stack_top += 1;
+
+                        // Now call __init__: [instance, self(instance), arg1, arg2, ..., saved_instance]
+                        // Pass the saved_instance_slot to call_function so handle_return can restore it
+                        return self.call_function(
+                            init_func.clone(),
+                            callee_index,
+                            arg_count + 1,
+                            Some(saved_instance_slot),
+                        );
+                    }
+                }
+
+                // No __init__, just return the instance
+                self.stack[callee_index] = instance_obj;
+                self.stack_top = callee_index + 1;
+                true
+            }
+            ObjectType::BoundMethod(instance, method) => {
+                // Insert the instance as first parameter
+                // Stack layout: [bound_method, arg1, arg2, ...]
+                // Need: [bound_method, instance(self), arg1, arg2, ...]
+
+                // Shift arguments to make room for self
+                for i in (callee_index + 1..self.stack_top).rev() {
+                    self.stack[i + 1] = self.stack[i].clone();
+                }
+                // Insert instance as first parameter
+                self.stack[callee_index + 1] = instance.clone();
+                self.stack_top += 1;
+
+                match &**method {
+                    ObjectType::Function(function) => {
+                        // Call with arg_count + 1 (including self)
+                        // slot points to bound_method, parameters start at slot+1
+                        self.call_function(function.clone(), callee_index, arg_count + 1, None)
+                    }
+                    _ => false,
+                }
             }
             _ => false,
         }
@@ -822,6 +986,7 @@ impl VM {
         function: Rc<FunctionObject>,
         callee_index: usize,
         arg_count: usize,
+        instance_slot: Option<usize>,
     ) -> bool {
         if function.arity != arg_count {
             return false;
@@ -834,22 +999,30 @@ impl VM {
             function,
             ip: 0,
             slot: callee_index,
+            instance_slot,
         });
         true
     }
 
     fn handle_return(&mut self) -> bool {
-        let (frame_slot, frame_arity) = if let Some(frame) = self.frames.last() {
-            (frame.slot, frame.function.arity)
+        let (frame_slot, frame_arity, instance_slot) = if let Some(frame) = self.frames.last() {
+            (frame.slot, frame.function.arity, frame.instance_slot)
         } else {
-            (0, 0)
+            (0, 0, None)
         };
+        // Stack layout: [callee/function, params...] [return_value?]
+        // frame_slot points to callee, params start at frame_slot+1
+        // Return value (if any) is at frame_slot + arity + 1
+        // So if there's a return value, stack_top > frame_slot + arity + 1
         let minimum_stack = frame_slot + frame_arity + 1;
         let result = if self.stack_top > minimum_stack {
             Some(self.pop())
         } else {
             None
         };
+
+        // Save the instance BEFORE resetting stack_top
+        let saved_instance = instance_slot.map(|slot| self.stack[slot].clone());
 
         self.close_upvalues(frame_slot);
 
@@ -863,7 +1036,13 @@ impl VM {
             }
             true
         } else {
-            let value = result.unwrap_or_else(|| Rc::new(ObjectType::Nil));
+            // Check if this was an __init__ call
+            let value = if let Some(instance) = saved_instance {
+                // Return the saved instance instead of the function's return value
+                instance
+            } else {
+                result.unwrap_or_else(|| Rc::new(ObjectType::Nil))
+            };
             self.last_popped = value.clone();
             self.push(value);
             false

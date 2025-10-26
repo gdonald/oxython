@@ -6,7 +6,6 @@ use std::cell::Cell;
 use std::env;
 use std::fs;
 use std::io::{Cursor, Read};
-use std::path::PathBuf;
 
 const BANNER: &str = include_str!("../src/banner.txt");
 
@@ -27,7 +26,7 @@ fn handle_args_reports_usage_error_for_extra_args() {
 
 #[test]
 fn run_file_executes_valid_script() {
-    let mut path = PathBuf::from(env::temp_dir());
+    let mut path = env::temp_dir();
     path.push(format!("oxython_test_{}_ok.py", std::process::id()));
     fs::write(&path, "print('ok')").unwrap();
 
@@ -38,7 +37,7 @@ fn run_file_executes_valid_script() {
 
 #[test]
 fn run_file_reports_missing_file() {
-    let mut path = PathBuf::from(env::temp_dir());
+    let mut path = env::temp_dir();
     path.push(format!("oxython_test_{}_missing.py", std::process::id()));
 
     let result = run_file(path.to_str().unwrap());
@@ -73,7 +72,7 @@ fn run_prompt_with_streams_returns_captured_output() {
 
 #[test]
 fn handle_args_runs_file_for_single_arg() {
-    let mut path = PathBuf::from(env::temp_dir());
+    let mut path = env::temp_dir();
     path.push(format!(
         "oxythonlang_test_arg_run_{}.py",
         std::process::id()
@@ -96,7 +95,7 @@ fn handle_args_reports_usage_for_many_args() {
 
 #[test]
 fn run_main_with_args_executes_script() {
-    let mut path = PathBuf::from(env::temp_dir());
+    let mut path = env::temp_dir();
     path.push(format!(
         "oxythonlang_test_{}_cli_run.py",
         std::process::id()
@@ -145,7 +144,7 @@ fn run_prompt_reports_runtime_error() {
 
 #[test]
 fn run_file_reports_compile_error() {
-    let mut path = PathBuf::from(env::temp_dir());
+    let mut path = env::temp_dir();
     path.push(format!(
         "oxythonlang_test_{}_compile_err.py",
         std::process::id()
@@ -160,7 +159,7 @@ fn run_file_reports_compile_error() {
 
 #[test]
 fn run_main_with_args_propagates_compile_error() {
-    let mut path = PathBuf::from(env::temp_dir());
+    let mut path = env::temp_dir();
     path.push(format!(
         "oxythonlang_test_{}_main_compile_err.py",
         std::process::id()
@@ -236,7 +235,7 @@ fn run_prompt_suppresses_nil_values() {
 
 #[test]
 fn run_file_executes_and_interprets() {
-    let mut path = PathBuf::from(env::temp_dir());
+    let mut path = env::temp_dir();
     path.push(format!("oxythonlang_test_{}_exec.py", std::process::id()));
     fs::write(&path, "x = 10\ny = 20\nz = x + y").unwrap();
 
@@ -250,7 +249,7 @@ fn run_file_executes_and_interprets() {
 #[cfg(unix)]
 #[test]
 fn run_prompt_uses_stdin_stdout() {
-    let output = with_piped_stdio("1 + 2\n", || run_prompt());
+    let output = with_piped_stdio("1 + 2\n", run_prompt);
     assert!(output.contains("Welcome to the oxython REPL!"));
     assert!(
         output.contains("3"),
@@ -297,7 +296,7 @@ where
         libc::write(
             stdin_write,
             input.as_bytes().as_ptr() as *const _,
-            input.as_bytes().len(),
+            input.len(),
         );
         libc::close(stdin_write);
 

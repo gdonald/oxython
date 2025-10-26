@@ -261,7 +261,7 @@ fn vm_divides_float_and_integer() {
 #[test]
 fn vm_rounds_float() {
     let mut chunk = Chunk::new();
-    let value_idx = push_constant(&mut chunk, ObjectType::Float(3.14159));
+    let value_idx = push_constant(&mut chunk, ObjectType::Float(3.13159));
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(value_idx as u8);
     let digits_idx = push_constant(&mut chunk, ObjectType::Integer(2));
@@ -273,7 +273,7 @@ fn vm_rounds_float() {
     let mut vm = VM::new();
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
     let top = vm.peek_stack().expect("expected value on stack");
-    assert!(matches!(&*top, ObjectType::Float(ref v) if (*v - 3.14).abs() < 1e-6));
+    assert!(matches!(&*top, ObjectType::Float(ref v) if (*v - 3.13).abs() < 1e-6));
 }
 
 #[test]
@@ -1001,7 +1001,7 @@ fn vm_round_errors_on_non_numeric_value() {
 #[test]
 fn vm_round_errors_on_non_integer_digits() {
     let mut chunk = Chunk::new();
-    let value_idx = push_constant(&mut chunk, ObjectType::Float(3.14));
+    let value_idx = push_constant(&mut chunk, ObjectType::Float(3.15));
     chunk.code.push(OpCode::OpConstant as u8);
     chunk.code.push(value_idx as u8);
     let digits_idx = push_constant(&mut chunk, ObjectType::String("two".into()));

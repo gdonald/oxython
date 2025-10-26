@@ -28,6 +28,7 @@ enum FStringSegment {
     Identifier(String),
 }
 
+#[allow(dead_code)]
 enum ComprehensionEnd {
     RBracket,
     RParen,
@@ -214,6 +215,7 @@ impl<'a> Compiler<'a> {
             Token::While => self.parse_while_statement(),
             Token::If => self.parse_if_statement(),
             Token::Def => self.parse_function_statement(),
+            Token::Class => self.parse_class_statement(),
             Token::Return => self.parse_return_statement(),
             Token::Break => self.parse_break_statement(),
             Token::Nonlocal => self.parse_nonlocal_statement(),
@@ -402,6 +404,196 @@ impl<'a> Compiler<'a> {
         self.chunk.code.push(name_idx as u8);
     }
 
+    fn parse_class_statement(&mut self) {
+        self.lexer.next(); // consume 'class'
+
+        let class_name = match self.lexer.next() {
+            Some(Ok(Token::Identifier(identifier))) => identifier,
+            _ => {
+                self.had_error = true;
+                return;
+            }
+        };
+
+        let colon_end = if let Some(Ok(Token::Colon)) = self.lexer.next() {
+            self.lexer.span().end
+        } else {
+            self.had_error = true;
+            return;
+        };
+
+        let parent_indent = self.current_indent;
+        let class_body_indent = parent_indent + 4; // Methods are indented 4 spaces from class
+
+        // Parse class body - collect methods
+        let mut method_names: Vec<String> = Vec::new();
+
+        loop {
+            let Some((token_result, info)) = self.peek_token_with_indent() else {
+                break;
+            };
+
+            if info.indent <= parent_indent {
+                break;
+            }
+
+            if self.has_newline_between(colon_end, info.start) && info.indent != class_body_indent {
+                self.had_error = true;
+                return;
+            }
+
+            let Ok(token) = token_result else {
+                self.lexer.next();
+                self.had_error = true;
+                return;
+            };
+
+            // Only methods (def statements) are allowed in class body
+            if matches!(token, Token::Def) {
+                // Parse the method as a function
+                self.lexer.next(); // consume 'def'
+
+                let method_name = match self.lexer.next() {
+                    Some(Ok(Token::Identifier(identifier))) => identifier,
+                    _ => {
+                        self.had_error = true;
+                        return;
+                    }
+                };
+
+                // Now parse rest of function exactly like parse_function_statement
+                if self.lexer.next() != Some(Ok(Token::LParen)) {
+                    self.had_error = true;
+                    return;
+                }
+
+                let mut parameters: Vec<String> = Vec::new();
+                if self.lexer.clone().next() != Some(Ok(Token::RParen)) {
+                    loop {
+                        match self.lexer.next() {
+                            Some(Ok(Token::Identifier(param))) => parameters.push(param),
+                            _ => {
+                                self.had_error = true;
+                                return;
+                            }
+                        }
+
+                        match self.lexer.clone().next() {
+                            Some(Ok(Token::Comma)) => {
+                                self.lexer.next();
+                            }
+                            Some(Ok(Token::RParen)) => break,
+                            _ => {
+                                self.had_error = true;
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                if self.lexer.next() != Some(Ok(Token::RParen)) {
+                    self.had_error = true;
+                    return;
+                }
+
+                if parameters.len() > u8::MAX as usize {
+                    self.had_error = true;
+                    return;
+                }
+
+                let method_colon_end = if let Some(Ok(Token::Colon)) = self.lexer.next() {
+                    self.lexer.span().end
+                } else {
+                    self.had_error = true;
+                    return;
+                };
+
+                let outer_chunk = std::mem::take(&mut self.chunk);
+                let outer_loop_stack = std::mem::take(&mut self.loop_stack);
+
+                self.function_scopes
+                    .push(FunctionScope::new(parameters.clone()));
+                self.function_depth += 1;
+
+                // Method body should be indented relative to the method definition (at class_body_indent)
+                let body_had_statement = self.parse_suite(class_body_indent, method_colon_end);
+
+                self.function_depth -= 1;
+                let captured_upvalues = self
+                    .function_scopes
+                    .pop()
+                    .map(|scope| scope.upvalues)
+                    .unwrap_or_default();
+
+                if !body_had_statement && !self.had_error {
+                    self.had_error = true;
+                }
+
+                if !self.had_error && self.chunk.code.last() != Some(&(OpCode::OpReturn as u8)) {
+                    self.chunk.code.push(OpCode::OpReturn as u8);
+                }
+
+                let function_chunk = std::mem::replace(&mut self.chunk, outer_chunk);
+                self.loop_stack = outer_loop_stack;
+                self.current_indent = class_body_indent;
+
+                if self.had_error {
+                    return;
+                }
+
+                let prototype_value = Rc::new(ObjectType::FunctionPrototype(Rc::new(
+                    FunctionPrototype::new(
+                        method_name.clone(),
+                        parameters.len(),
+                        function_chunk,
+                        captured_upvalues,
+                    ),
+                )));
+                let prototype_const_idx = self.add_constant(prototype_value);
+                self.chunk.code.push(OpCode::OpMakeFunction as u8);
+                self.chunk.code.push(prototype_const_idx as u8);
+
+                method_names.push(method_name);
+            } else {
+                // Skip non-def tokens in class body
+                self.had_error = true;
+                return;
+            }
+        }
+
+        if self.had_error {
+            return;
+        }
+
+        // Methods are already on the stack as functions
+        // Now emit each method name after its function
+        // Stack will be: [func1] [name1] [func2] [name2] ... [class_name]
+        // But methods are already pushed in order during parsing
+        // So we need a different approach
+
+        // Actually, let's emit name constants after all functions
+        // Stack layout will be: [func1, func2, ...] then we push [name1, name2, ...] [class_name]
+        for method_name in method_names.iter() {
+            let name_idx = self.add_constant(Rc::new(ObjectType::String(method_name.clone())));
+            self.chunk.code.push(OpCode::OpConstant as u8);
+            self.chunk.code.push(name_idx as u8);
+        }
+
+        // Emit class name constant
+        let class_name_idx = self.add_constant(Rc::new(ObjectType::String(class_name.clone())));
+        self.chunk.code.push(OpCode::OpConstant as u8);
+        self.chunk.code.push(class_name_idx as u8);
+
+        // Emit OpMakeClass with method count
+        self.chunk.code.push(OpCode::OpMakeClass as u8);
+        self.chunk.code.push(method_names.len() as u8);
+
+        // Define class as global
+        let define_name_idx = self.add_constant(Rc::new(ObjectType::String(class_name)));
+        self.chunk.code.push(OpCode::OpDefineGlobal as u8);
+        self.chunk.code.push(define_name_idx as u8);
+    }
+
     fn parse_return_statement(&mut self) {
         self.lexer.next(); // consume 'return'
 
@@ -480,6 +672,7 @@ impl<'a> Compiler<'a> {
         }
 
         let mut bracket_depth = 0;
+        let mut has_dot = false;
 
         for token_result in lookahead {
             match token_result {
@@ -490,6 +683,10 @@ impl<'a> Compiler<'a> {
                     }
                     bracket_depth -= 1;
                 }
+                Ok(Token::Dot) if bracket_depth == 0 => {
+                    has_dot = true;
+                    // Continue to see if there's an assignment after the dot and identifier
+                }
                 Ok(Token::Assign) if bracket_depth == 0 => return Some(AssignmentKind::Simple),
                 Ok(Token::PlusEqual) if bracket_depth == 0 => {
                     return Some(AssignmentKind::AddAssign)
@@ -497,7 +694,7 @@ impl<'a> Compiler<'a> {
                 Ok(Token::StarEqual) if bracket_depth == 0 => {
                     return Some(AssignmentKind::MultiplyAssign)
                 }
-                Ok(Token::LParen) | Ok(Token::Dot) if bracket_depth == 0 => return None,
+                Ok(Token::LParen) if bracket_depth == 0 && !has_dot => return None,
                 Ok(Token::Comma) | Ok(Token::Semicolon) if bracket_depth == 0 => return None,
                 Ok(Token::Plus) | Ok(Token::Slash) | Ok(Token::Star) | Ok(Token::Minus)
                 | Ok(Token::In)
@@ -1107,16 +1304,18 @@ impl<'a> Compiler<'a> {
                 }
                 Some(Ok(Token::Dot)) => {
                     self.lexer.next(); // consume '.'
-                    let method = match self.lexer.next() {
-                        Some(Ok(Token::Identifier(m))) => m,
+                    let attr_name = match self.lexer.next() {
+                        Some(Ok(Token::Identifier(name))) => name,
                         _ => {
                             self.had_error = true;
                             return false;
                         }
                     };
 
-                    match method.as_str() {
+                    // Check for built-in methods first (for lists, strings, etc.)
+                    match attr_name.as_str() {
                         "append" => {
+                            // Handle list.append(value) -> OpAppend + OpSetGlobal
                             if base_name_idx.is_none() {
                                 self.had_error = true;
                                 return false;
@@ -1140,6 +1339,7 @@ impl<'a> Compiler<'a> {
                                 .push(base_name_idx.expect("base variable index") as u8);
                         }
                         "lower" => {
+                            // Handle string.lower() -> OpStrLower
                             if self.lexer.next() != Some(Ok(Token::LParen)) {
                                 self.had_error = true;
                                 return false;
@@ -1151,27 +1351,13 @@ impl<'a> Compiler<'a> {
                             self.chunk.code.push(OpCode::OpStrLower as u8);
                             base_name_idx = None;
                         }
-                        "isalnum" => {
-                            if self.lexer.next() != Some(Ok(Token::LParen)) {
-                                self.had_error = true;
-                                return false;
-                            }
-                            if self.lexer.next() != Some(Ok(Token::RParen)) {
-                                self.had_error = true;
-                                return false;
-                            }
-                            self.chunk.code.push(OpCode::OpStrIsAlnum as u8);
-                            base_name_idx = None;
-                        }
-                        "join" => {
-                            if !self.parse_join_call() {
-                                return false;
-                            }
-                            base_name_idx = None;
-                        }
                         _ => {
-                            self.had_error = true;
-                            return false;
+                            // General attribute access for user-defined classes
+                            let attr_idx =
+                                self.add_constant(Rc::new(ObjectType::String(attr_name)));
+                            self.chunk.code.push(OpCode::OpGetAttr as u8);
+                            self.chunk.code.push(attr_idx as u8);
+                            base_name_idx = None;
                         }
                     }
                 }
@@ -1182,6 +1368,7 @@ impl<'a> Compiler<'a> {
         true
     }
 
+    #[allow(dead_code)]
     fn parse_join_call(&mut self) -> bool {
         if self.lexer.next() != Some(Ok(Token::LParen)) {
             self.had_error = true;
@@ -1759,9 +1946,25 @@ impl<'a> Compiler<'a> {
         let name_idx = self.add_constant(Rc::new(ObjectType::String(name.clone())));
 
         let mut has_subscript = false;
+        let mut has_attribute = false;
+        let mut attr_name: Option<String> = None;
         let mut index_expression_code: Option<Vec<u8>> = None;
 
-        if self.lexer.clone().next() == Some(Ok(Token::LBracket)) {
+        // Check for attribute assignment (obj.attr = value)
+        if self.lexer.clone().next() == Some(Ok(Token::Dot)) {
+            self.lexer.next(); // consume '.'
+            attr_name = match self.lexer.next() {
+                Some(Ok(Token::Identifier(attr))) => Some(attr),
+                _ => {
+                    self.had_error = true;
+                    return;
+                }
+            };
+            has_attribute = true;
+
+            // Load the object onto the stack
+            self.emit_get_variable(name_idx, target);
+        } else if self.lexer.clone().next() == Some(Ok(Token::LBracket)) {
             has_subscript = true;
             self.lexer.next(); // Consume '['
 
@@ -1796,7 +1999,21 @@ impl<'a> Compiler<'a> {
                     return;
                 }
 
-                if has_subscript {
+                if has_attribute {
+                    // Handle attribute assignment: obj.attr = value
+                    // Stack already has the object loaded
+                    let attr_name_str = attr_name.expect("attribute name");
+                    let attr_idx = self.add_constant(Rc::new(ObjectType::String(attr_name_str)));
+
+                    if !self.parse_expression() {
+                        self.had_error = true;
+                        return;
+                    }
+
+                    // Stack: [object, value]
+                    self.chunk.code.push(OpCode::OpSetAttr as u8);
+                    self.chunk.code.push(attr_idx as u8);
+                } else if has_subscript {
                     if !self.parse_expression() {
                         self.had_error = true;
                         return;

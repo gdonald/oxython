@@ -160,8 +160,8 @@ fn run_nonlocal_counter() {
 // OBJECT-ORIENTED PROGRAMMING
 // ============================================================================
 
-// #[test]
-// fn run_class() {
-//     let output = run_example("examples/oop/class.py");
-//     assert_eq!(output, "Hello, Ada!\n");
-// }
+#[test]
+fn run_class() {
+    let output = run_example("examples/oop/class.py");
+    assert_eq!(output, "Hello, Ada!\n");
+}

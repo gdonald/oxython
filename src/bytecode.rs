@@ -86,6 +86,12 @@ pub enum OpCode {
     OpSetUpvalue,
     /// Creates a function object from a constant prototype.
     OpMakeFunction,
+    /// Creates a class object with methods.
+    OpMakeClass,
+    /// Gets an attribute from an object (instance or class).
+    OpGetAttr,
+    /// Sets an attribute on an instance.
+    OpSetAttr,
 }
 
 impl From<u8> for OpCode {
@@ -132,6 +138,9 @@ impl From<u8> for OpCode {
             38 => OpCode::OpGetUpvalue,
             39 => OpCode::OpSetUpvalue,
             40 => OpCode::OpMakeFunction,
+            41 => OpCode::OpMakeClass,
+            42 => OpCode::OpGetAttr,
+            43 => OpCode::OpSetAttr,
             _ => panic!("Invalid opcode: {}", byte),
         }
     }

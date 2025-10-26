@@ -9,5 +9,5 @@ fn display_formats_boolean_and_nil() {
 
 #[test]
 fn display_formats_float() {
-    assert_eq!(format!("{}", ObjectType::Float(3.14)), "3.14");
+    assert_eq!(format!("{}", ObjectType::Float(3.15)), "3.15");
 }

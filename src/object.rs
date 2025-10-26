@@ -1,5 +1,6 @@
 use crate::bytecode::Chunk;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
@@ -87,6 +88,62 @@ impl PartialEq for FunctionPrototype {
     }
 }
 
+/// Represents a class definition.
+#[derive(Clone, Debug)]
+pub struct ClassObject {
+    pub name: String,
+    pub methods: HashMap<String, Object>,
+}
+
+impl ClassObject {
+    pub fn new(name: String, methods: HashMap<String, Object>) -> Self {
+        ClassObject { name, methods }
+    }
+}
+
+impl PartialEq for ClassObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+/// Represents an instance of a class.
+#[derive(Clone, Debug)]
+pub struct InstanceObject {
+    pub class: Rc<ClassObject>,
+    pub fields: Vec<(String, Object)>,
+}
+
+impl InstanceObject {
+    pub fn new(class: Rc<ClassObject>) -> Self {
+        InstanceObject {
+            class,
+            fields: Vec::new(),
+        }
+    }
+
+    pub fn get_field(&self, name: &str) -> Option<Object> {
+        self.fields
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.clone())
+    }
+
+    pub fn set_field(&mut self, name: String, value: Object) {
+        if let Some((_, existing)) = self.fields.iter_mut().find(|(k, _)| k == &name) {
+            *existing = value;
+        } else {
+            self.fields.push((name, value));
+        }
+    }
+}
+
+impl PartialEq for InstanceObject {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.class, &other.class) && self.fields == other.fields
+    }
+}
+
 /// Represents all possible data types that can exist in the oxython language.
 /// By wrapping primitive Rust types, we create a unified object model.
 #[derive(Debug, PartialEq)]
@@ -100,6 +157,9 @@ pub enum ObjectType {
     Dict(Vec<(String, Object)>),
     FunctionPrototype(Rc<FunctionPrototype>),
     Function(Rc<FunctionObject>),
+    Class(Rc<ClassObject>),
+    Instance(Rc<RefCell<InstanceObject>>),
+    BoundMethod(Object, Object), // (instance, method function)
     Nil,
 }
 
@@ -157,6 +217,14 @@ impl fmt::Display for ObjectType {
             }
             ObjectType::FunctionPrototype(proto) => write!(f, "<fn {}>", proto.name),
             ObjectType::Function(func) => write!(f, "<function {}>", func.name),
+            ObjectType::Class(class) => write!(f, "<class '{}'>", class.name),
+            ObjectType::Instance(instance) => {
+                write!(f, "<{} instance>", instance.borrow().class.name)
+            }
+            ObjectType::BoundMethod(_, method) => match &**method {
+                ObjectType::Function(func) => write!(f, "<bound method {}>", func.name),
+                _ => write!(f, "<bound method>"),
+            },
             ObjectType::Nil => write!(f, "nil"),
         }
     }

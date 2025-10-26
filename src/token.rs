@@ -40,6 +40,9 @@ pub enum Token {
     #[token("def")]
     Def,
 
+    #[token("class")]
+    Class,
+
     #[token("return")]
     Return,
 
