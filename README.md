@@ -37,38 +37,38 @@ oxython is the Python programming language implemented in Rust.
 - [ ] Object-Oriented Features & Types
     - [x] Foundation: Add `class` keyword token, `ClassObject` and `InstanceObject` types to object model, and class-related opcodes (`OpMakeClass`, `OpGetAttr`, `OpSetAttr`).
     - [x] Class Parsing: Implement `parse_class_statement` in compiler to recognize `class ClassName:` syntax, parse method definitions within class body, and emit `OpMakeClass` instruction.
-    - [ ] Compiler: General Attribute Access
-        - [ ] Replace hardcoded method handling (`.append()`, `.lower()`, etc.) with general `OpGetAttr` emission for any `.attribute` access.
-        - [ ] Distinguish between attribute access (reading) and method calls (with parentheses) to properly handle both cases.
-        - [ ] Implement attribute assignment detection: recognize `obj.attr = value` pattern and emit `OpSetAttr` instead of treating it as a regular assignment.
-    - [ ] VM: Class Creation (`OpMakeClass`)
-        - [ ] Pop method count from instruction stream, then pop that many method name/function pairs from stack.
-        - [ ] Create `ClassObject` with class name and methods stored in HashMap.
-        - [ ] Push class object onto stack for subsequent `OpDefineGlobal`.
-    - [ ] VM: Instance Creation
-        - [ ] Modify `call_value` to detect when a `Class` object is being called (not a function).
-        - [ ] Create new `InstanceObject` with reference to the class.
-        - [ ] Look up `__init__` method in class methods; if found, call it with the instance as first argument (`self`) plus any constructor arguments.
-        - [ ] Push the instance onto the stack as the result.
-    - [ ] VM: Attribute Access (`OpGetAttr`)
-        - [ ] Pop attribute name (string constant) and object from stack.
-        - [ ] If object is `Instance`: first check instance fields, then check class methods.
-        - [ ] If attribute is a method from the class, create a bound method (wrapper that pre-fills `self` as first argument).
-        - [ ] Push the attribute value or bound method onto stack.
-        - [ ] Handle errors for missing attributes gracefully.
-    - [ ] VM: Attribute Assignment (`OpSetAttr`)
-        - [ ] Pop value, attribute name, and instance from stack.
-        - [ ] Call `instance.set_field(name, value)` to update or add the field.
-        - [ ] Since instances use `Rc<RefCell<InstanceObject>>`, use `.borrow_mut()` to modify in place.
-        - [ ] Push the instance back onto stack (or handle as mutation).
-    - [ ] VM: Method Binding & `self`
-        - [ ] Create a `BoundMethod` wrapper type that stores both the instance and the method function.
-        - [ ] When `OpCall` encounters a bound method, automatically inject the instance as the first argument before the user-provided arguments.
-        - [ ] Ensure arity checking accounts for the implicit `self` parameter.
-    - [ ] Testing: Basic Class Functionality
-        - [ ] Enable `examples/oop/class.py` test in `examples_runner.rs`.
-        - [ ] Verify class definition, instance creation, attribute assignment (`self.name = name`), attribute access, and method calls work correctly.
-        - [ ] Add unit tests for class creation, instance creation, `__init__` execution, attribute get/set, and method dispatch.
+    - [x] Compiler: General Attribute Access
+        - [x] Implement hybrid approach: hardcoded opcodes for built-in methods (`.append()`, `.lower()`) and general `OpGetAttr` for user-defined class attributes.
+        - [x] Distinguish between attribute access (reading) and method calls (with parentheses) to properly handle both cases.
+        - [x] Implement attribute assignment detection: recognize `obj.attr = value` pattern and emit `OpSetAttr` instead of treating it as a regular assignment.
+    - [x] VM: Class Creation (`OpMakeClass`)
+        - [x] Pop method count from instruction stream, then pop that many method name/function pairs from stack.
+        - [x] Create `ClassObject` with class name and methods stored in HashMap.
+        - [x] Push class object onto stack for subsequent `OpDefineGlobal`.
+    - [x] VM: Instance Creation
+        - [x] Modify `call_value` to detect when a `Class` object is being called (not a function).
+        - [x] Create new `InstanceObject` with reference to the class.
+        - [x] Look up `__init__` method in class methods; if found, call it with the instance as first argument (`self`) plus any constructor arguments.
+        - [x] Push the instance onto the stack as the result.
+    - [x] VM: Attribute Access (`OpGetAttr`)
+        - [x] Pop attribute name (string constant) and object from stack.
+        - [x] If object is `Instance`: first check instance fields, then check class methods.
+        - [x] If attribute is a method from the class, create a bound method (wrapper that pre-fills `self` as first argument).
+        - [x] Push the attribute value or bound method onto stack.
+        - [x] Handle errors for missing attributes gracefully.
+    - [x] VM: Attribute Assignment (`OpSetAttr`)
+        - [x] Pop value, attribute name, and instance from stack.
+        - [x] Call `instance.set_field(name, value)` to update or add the field.
+        - [x] Since instances use `Rc<RefCell<InstanceObject>>`, use `.borrow_mut()` to modify in place.
+        - [x] Push the instance back onto stack (or handle as mutation).
+    - [x] VM: Method Binding & `self`
+        - [x] Create a `BoundMethod` wrapper type that stores both the instance and the method function.
+        - [x] When `OpCall` encounters a bound method, automatically inject the instance as the first argument before the user-provided arguments.
+        - [x] Ensure arity checking accounts for the implicit `self` parameter.
+    - [x] Testing: Basic Class Functionality
+        - [x] Enable `examples/oop/class.py` test in `examples_runner.rs`.
+        - [x] Verify class definition, instance creation, attribute assignment (`self.name = name`), attribute access, and method calls work correctly.
+        - [x] Add unit tests for class creation, instance creation, `__init__` execution, attribute get/set, and method dispatch.
     - [ ] Inheritance & Advanced Behavior (Future)
         - [ ] Single inheritance with parent class reference in `ClassObject`.
         - [ ] Method resolution order (MRO) for attribute lookup through parent chain.
