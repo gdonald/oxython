@@ -171,3 +171,12 @@ fn run_inheritance() {
     let output = run_example("examples/oop/inheritance.py");
     assert_eq!(output, "Buddy says Woof!\nWhiskers says Meow!\n");
 }
+
+#[test]
+fn run_super() {
+    let output = run_example("examples/oop/super.py");
+    assert_eq!(
+        output,
+        "Buddy\nGolden Retriever\nSome sound -> Woof!\nI am an animal named Buddy\n"
+    );
+}

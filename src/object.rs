@@ -176,9 +176,16 @@ impl PartialEq for InstanceObject {
     }
 }
 
+/// Type alias for native (Rust-implemented) functions
+/// The function receives:
+/// - args: The arguments passed to the function
+/// - class_context: The class context from the current call frame (for super())
+pub type NativeFn =
+    fn(args: &[Object], class_context: Option<Rc<ClassObject>>) -> Result<Object, String>;
+
 /// Represents all possible data types that can exist in the oxython language.
 /// By wrapping primitive Rust types, we create a unified object model.
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum ObjectType {
     Integer(i64),
     Float(f64),
@@ -189,10 +196,41 @@ pub enum ObjectType {
     Dict(Vec<(String, Object)>),
     FunctionPrototype(Rc<FunctionPrototype>),
     Function(Rc<FunctionObject>),
+    NativeFunction(String, NativeFn), // (name, function pointer)
     Class(Rc<ClassObject>),
     Instance(Rc<RefCell<InstanceObject>>),
-    BoundMethod(Object, Object), // (instance, method function)
+    BoundMethod(Object, Object),         // (instance, method function)
+    SuperProxy(Object, Rc<ClassObject>), // (instance, parent class to lookup methods in)
     Nil,
+}
+
+impl PartialEq for ObjectType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (ObjectType::Integer(a), ObjectType::Integer(b)) => a == b,
+            (ObjectType::Float(a), ObjectType::Float(b)) => a == b,
+            (ObjectType::String(a), ObjectType::String(b)) => a == b,
+            (ObjectType::Boolean(a), ObjectType::Boolean(b)) => a == b,
+            (ObjectType::List(a), ObjectType::List(b)) => a == b,
+            (ObjectType::Tuple(a), ObjectType::Tuple(b)) => a == b,
+            (ObjectType::Dict(a), ObjectType::Dict(b)) => a == b,
+            (ObjectType::FunctionPrototype(a), ObjectType::FunctionPrototype(b)) => a == b,
+            (ObjectType::Function(a), ObjectType::Function(b)) => a == b,
+            (ObjectType::NativeFunction(name_a, _), ObjectType::NativeFunction(name_b, _)) => {
+                name_a == name_b
+            }
+            (ObjectType::Class(a), ObjectType::Class(b)) => a == b,
+            (ObjectType::Instance(a), ObjectType::Instance(b)) => a == b,
+            (ObjectType::BoundMethod(inst_a, meth_a), ObjectType::BoundMethod(inst_b, meth_b)) => {
+                inst_a == inst_b && meth_a == meth_b
+            }
+            (ObjectType::SuperProxy(inst_a, class_a), ObjectType::SuperProxy(inst_b, class_b)) => {
+                inst_a == inst_b && class_a == class_b
+            }
+            (ObjectType::Nil, ObjectType::Nil) => true,
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for ObjectType {
@@ -249,6 +287,7 @@ impl fmt::Display for ObjectType {
             }
             ObjectType::FunctionPrototype(proto) => write!(f, "<fn {}>", proto.name),
             ObjectType::Function(func) => write!(f, "<function {}>", func.name),
+            ObjectType::NativeFunction(name, _) => write!(f, "<built-in function {}>", name),
             ObjectType::Class(class) => write!(f, "<class '{}'>", class.name),
             ObjectType::Instance(instance) => {
                 write!(f, "<{} instance>", instance.borrow().class.name)
@@ -257,6 +296,7 @@ impl fmt::Display for ObjectType {
                 ObjectType::Function(func) => write!(f, "<bound method {}>", func.name),
                 _ => write!(f, "<bound method>"),
             },
+            ObjectType::SuperProxy(_, _) => write!(f, "<super>"),
             ObjectType::Nil => write!(f, "nil"),
         }
     }

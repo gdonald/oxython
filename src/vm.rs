@@ -14,6 +14,7 @@ struct CallFrame {
     ip: usize,
     slot: usize,
     instance_slot: Option<usize>, // For __init__ calls, where to find the instance to return
+    class_context: Option<Rc<ClassObject>>, // For tracking which class a method belongs to (for super())
 }
 
 pub struct VM {
@@ -44,14 +45,27 @@ impl VM {
         // We can achieve this by making ObjectType derivable from Default.
         // For now, let's create a default Nil object.
         let default_obj = Rc::new(ObjectType::Nil);
-        VM {
+        let mut vm = VM {
             stack: [(); STACK_MAX].map(|_| default_obj.clone()),
             stack_top: 0,
             globals: HashMap::new(),
             last_popped: default_obj,
             frames: Vec::new(),
             open_upvalues: Vec::new(),
-        }
+        };
+        vm.register_builtins();
+        vm
+    }
+
+    fn register_builtins(&mut self) {
+        // Register the super() builtin
+        self.globals.insert(
+            "super".to_string(),
+            Rc::new(ObjectType::NativeFunction(
+                "super".to_string(),
+                native_super,
+            )),
+        );
     }
 
     pub fn interpret(&mut self, chunk: Chunk) -> InterpretResult {
@@ -72,6 +86,7 @@ impl VM {
             ip: 0,
             slot: 0,
             instance_slot: None,
+            class_context: None,
         });
 
         self.run()
@@ -816,6 +831,19 @@ impl VM {
                                 return InterpretResult::RuntimeError;
                             }
                         }
+                        ObjectType::SuperProxy(instance, parent_class) => {
+                            // Look up method in the parent class only (not the full chain)
+                            if let Some(method) = parent_class.get_method(&attr_name) {
+                                // Create a bound method with the instance
+                                let bound = Rc::new(ObjectType::BoundMethod(
+                                    instance.clone(),
+                                    method.clone(),
+                                ));
+                                self.push(bound);
+                            } else {
+                                return InterpretResult::RuntimeError;
+                            }
+                        }
                         _ => return InterpretResult::RuntimeError,
                     }
                 }
@@ -936,7 +964,46 @@ impl VM {
         let callee = self.stack[callee_index].clone();
         match &*callee {
             ObjectType::Function(function) => {
-                self.call_function(function.clone(), callee_index, arg_count, None)
+                self.call_function(function.clone(), callee_index, arg_count, None, None)
+            }
+            ObjectType::NativeFunction(name, func) => {
+                // Special handling for super() - it needs access to self
+                if name == "super" {
+                    // Get the class context from the current frame
+                    let class_context = self.frames.last().and_then(|f| f.class_context.clone());
+
+                    // Get 'self' from the current frame's first local variable (slot + 1)
+                    let self_instance = if let Some(frame) = self.frames.last() {
+                        self.stack[frame.slot + 1].clone()
+                    } else {
+                        return false;
+                    };
+
+                    // Call the native function with self as an argument
+                    let args = [self_instance];
+                    match func(&args, class_context) {
+                        Ok(result) => {
+                            self.stack_top = callee_index;
+                            self.push(result);
+                            true
+                        }
+                        Err(_) => false,
+                    }
+                } else {
+                    // General native function call
+                    let class_context = self.frames.last().and_then(|f| f.class_context.clone());
+                    let args: Vec<Object> = (0..arg_count)
+                        .map(|i| self.stack[callee_index + 1 + i].clone())
+                        .collect();
+                    match func(&args, class_context) {
+                        Ok(result) => {
+                            self.stack_top = callee_index;
+                            self.push(result);
+                            true
+                        }
+                        Err(_) => false,
+                    }
+                }
             }
             ObjectType::Class(class) => {
                 // Create instance
@@ -968,11 +1035,13 @@ impl VM {
 
                         // Now call __init__: [instance, self(instance), arg1, arg2, ..., saved_instance]
                         // Pass the saved_instance_slot to call_function so handle_return can restore it
+                        // Pass the class as context for super() to work in __init__
                         return self.call_function(
                             init_func.clone(),
                             callee_index,
                             arg_count + 1,
                             Some(saved_instance_slot),
+                            Some(class.clone()),
                         );
                     }
                 }
@@ -995,11 +1064,24 @@ impl VM {
                 self.stack[callee_index + 1] = instance.clone();
                 self.stack_top += 1;
 
+                // Get the class context from the instance for super() support
+                let class_context = if let ObjectType::Instance(inst_ref) = &**instance {
+                    Some(inst_ref.borrow().class.clone())
+                } else {
+                    None
+                };
+
                 match &**method {
                     ObjectType::Function(function) => {
                         // Call with arg_count + 1 (including self)
                         // slot points to bound_method, parameters start at slot+1
-                        self.call_function(function.clone(), callee_index, arg_count + 1, None)
+                        self.call_function(
+                            function.clone(),
+                            callee_index,
+                            arg_count + 1,
+                            None,
+                            class_context,
+                        )
                     }
                     _ => false,
                 }
@@ -1014,6 +1096,7 @@ impl VM {
         callee_index: usize,
         arg_count: usize,
         instance_slot: Option<usize>,
+        class_context: Option<Rc<ClassObject>>,
     ) -> bool {
         if function.arity != arg_count {
             return false;
@@ -1027,6 +1110,7 @@ impl VM {
             ip: 0,
             slot: callee_index,
             instance_slot,
+            class_context,
         });
         true
     }
@@ -1197,4 +1281,32 @@ fn adjust_index(index: Option<i64>, len: isize, is_end: bool, step_positive: boo
             }
         }
     }
+}
+
+/// Native implementation of the super() builtin function
+fn native_super(args: &[Object], class_context: Option<Rc<ClassObject>>) -> Result<Object, String> {
+    // super() should be called with no arguments or with instance explicitly
+    if args.is_empty() {
+        return Err("super() requires access to self".to_string());
+    }
+
+    if args.len() != 1 {
+        return Err("super() takes at most 1 argument (self)".to_string());
+    }
+
+    // Get the current class context
+    let current_class =
+        class_context.ok_or_else(|| "super() can only be called inside a method".to_string())?;
+
+    // Get the parent class
+    let parent_class = current_class
+        .parent
+        .clone()
+        .ok_or_else(|| "super() called in class with no parent".to_string())?;
+
+    // Get self (instance) from the argument
+    let instance = args[0].clone();
+
+    // Return a SuperProxy that will handle attribute lookups in the parent class
+    Ok(Rc::new(ObjectType::SuperProxy(instance, parent_class)))
 }
