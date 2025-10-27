@@ -336,10 +336,24 @@ impl VM {
                     }
                 }
                 OpCode::OpPrintSpaced => {
-                    print!("{} ", self.pop());
+                    let value = self.pop();
+                    let string_repr = self.get_string_representation(value.clone());
+                    if let Some(repr) = string_repr {
+                        print!("{} ", repr);
+                    } else {
+                        // Fallback to default Display implementation
+                        print!("{} ", value);
+                    }
                 }
                 OpCode::OpPrint => {
-                    print!("{}", self.pop());
+                    let value = self.pop();
+                    let string_repr = self.get_string_representation(value.clone());
+                    if let Some(repr) = string_repr {
+                        print!("{}", repr);
+                    } else {
+                        // Fallback to default Display implementation
+                        print!("{}", value);
+                    }
                 }
                 OpCode::OpPrintln => {
                     println!();
@@ -1195,6 +1209,170 @@ impl VM {
 
         for idx in to_remove.into_iter().rev() {
             self.open_upvalues.remove(idx);
+        }
+    }
+
+    /// Get string representation of an object, checking for __str__ and __repr__ special methods
+    fn get_string_representation(&mut self, value: Object) -> Option<String> {
+        match &*value {
+            ObjectType::Instance(instance_ref) => {
+                let instance = instance_ref.borrow();
+
+                // Check for __str__ method first
+                if let Some(str_method) = instance.class.get_method("__str__") {
+                    drop(instance); // Release borrow before calling method
+
+                    // Call __str__ on the instance
+                    let result = self.call_str_method(value.clone(), str_method)?;
+
+                    // Extract string from result
+                    if let ObjectType::String(s) = &*result {
+                        return Some(s.clone());
+                    }
+                    return None;
+                }
+
+                // Check for __repr__ method as fallback
+                if let Some(repr_method) = instance.class.get_method("__repr__") {
+                    drop(instance); // Release borrow before calling method
+
+                    // Call __repr__ on the instance
+                    let result = self.call_str_method(value.clone(), repr_method)?;
+
+                    // Extract string from result
+                    if let ObjectType::String(s) = &*result {
+                        return Some(s.clone());
+                    }
+                    return None;
+                }
+
+                // No __str__ or __repr__, use default representation
+                let class_name = instance.class.name.clone();
+                drop(instance);
+                Some(format!("<{} instance>", class_name))
+            }
+            _ => {
+                // For non-instance objects, use the Display trait
+                Some(format!("{}", value))
+            }
+        }
+    }
+
+    /// Helper to call __str__ or __repr__ method
+    fn call_str_method(&mut self, instance: Object, method: Object) -> Option<Object> {
+        // Save current stack state
+        let saved_stack_top = self.stack_top;
+        let saved_frame_count = self.frames.len();
+
+        // Create a bound method
+        let bound_method = Rc::new(ObjectType::BoundMethod(instance, method));
+
+        // Push bound method onto stack
+        self.push(bound_method);
+
+        // Call with 0 arguments (just self)
+        if !self.call_value(0) {
+            self.stack_top = saved_stack_top;
+            return None;
+        }
+
+        // Execute until the method returns by running a mini event loop
+        loop {
+            // Check if we've returned from the __str__ call
+            // We pushed a new frame, so frame_count increased. When we return, it should go back down.
+            if self.frames.len() <= saved_frame_count {
+                // Method has returned, get result
+                if self.stack_top > saved_stack_top {
+                    let result = self.pop();
+                    self.stack_top = saved_stack_top;
+                    return Some(result);
+                } else {
+                    self.stack_top = saved_stack_top;
+                    return None;
+                }
+            }
+
+            if self.frames.is_empty() {
+                self.stack_top = saved_stack_top;
+                return None;
+            }
+
+            // Read and execute one instruction
+            let instruction = OpCode::from(self.read_byte());
+
+            // We need to handle all possible opcodes that __str__ might use
+            // For simplicity, let's handle the most common ones
+            let should_bail = match instruction {
+                OpCode::OpConstant => {
+                    let const_idx = self.read_byte() as usize;
+                    let constant = self.current_chunk().constants[const_idx].clone();
+                    self.push(constant);
+                    false
+                }
+                OpCode::OpGetLocal => {
+                    let slot = self.read_byte() as usize;
+                    if let Some(frame) = self.frames.last() {
+                        let index = frame.slot + slot;
+                        let value = self.stack[index].clone();
+                        self.push(value);
+                    }
+                    false
+                }
+                OpCode::OpGetAttr => {
+                    let attr_idx = self.read_byte() as usize;
+                    let attr_name = if let ObjectType::String(name) =
+                        &*self.current_chunk().constants[attr_idx]
+                    {
+                        name.clone()
+                    } else {
+                        self.stack_top = saved_stack_top;
+                        return None;
+                    };
+                    let object = self.pop();
+                    if let ObjectType::Instance(instance_ref) = &*object {
+                        let instance = instance_ref.borrow();
+                        if let Some(value) = instance.get_field(&attr_name) {
+                            self.push(value);
+                        } else {
+                            self.stack_top = saved_stack_top;
+                            return None;
+                        }
+                    } else {
+                        self.stack_top = saved_stack_top;
+                        return None;
+                    }
+                    false
+                }
+                OpCode::OpAdd => {
+                    let b = self.pop();
+                    let a = self.pop();
+                    match (&*a, &*b) {
+                        (ObjectType::String(val_a), ObjectType::String(val_b)) => {
+                            let mut combined = val_a.clone();
+                            combined.push_str(val_b);
+                            self.push(Rc::new(ObjectType::String(combined)));
+                            false
+                        }
+                        _ => true,
+                    }
+                }
+                OpCode::OpReturn => {
+                    if self.handle_return() {
+                        self.stack_top = saved_stack_top;
+                        return None;
+                    }
+                    false
+                }
+                _ => {
+                    // Unsupported opcode in __str__ method
+                    true
+                }
+            };
+
+            if should_bail {
+                self.stack_top = saved_stack_top;
+                return None;
+            }
         }
     }
 }

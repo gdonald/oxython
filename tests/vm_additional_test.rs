@@ -2024,3 +2024,99 @@ name = d.get_name()
     let mut vm = VM::new();
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
 }
+
+#[test]
+fn vm_special_method_str() {
+    let source = r#"
+class Person:
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return "Person: " + self.name
+
+p = Person("Alice")
+print(p)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn vm_special_method_repr() {
+    let source = r#"
+class Point:
+    def __init__(self):
+        self.x = 0
+
+    def __repr__(self):
+        return "Point(0, 0)"
+
+p = Point()
+print(p)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn vm_special_method_str_priority_over_repr() {
+    let source = r#"
+class Book:
+    def __init__(self):
+        self.title = "Guide"
+
+    def __str__(self):
+        return "str method"
+
+    def __repr__(self):
+        return "repr method"
+
+b = Book()
+print(b)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn vm_special_method_iter() {
+    let source = r#"
+class Counter:
+    def __init__(self):
+        self.count = 0
+
+    def __iter__(self):
+        return self
+
+c = Counter()
+iterator = c.__iter__()
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn vm_special_method_next() {
+    let source = r#"
+class SimpleIterator:
+    def __init__(self):
+        self.value = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return "next"
+
+it = SimpleIterator()
+result = it.__next__()
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}

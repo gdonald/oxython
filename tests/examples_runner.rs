@@ -180,3 +180,30 @@ fn run_super() {
         "Buddy\nGolden Retriever\nSome sound -> Woof!\nI am an animal named Buddy\n"
     );
 }
+
+#[test]
+fn run_test_str() {
+    let output = run_example("examples/oop/test_str.py");
+    assert_eq!(output, "Person: Alice\n");
+}
+
+#[test]
+fn run_test_repr() {
+    let output = run_example("examples/oop/test_repr.py");
+    assert_eq!(output, "Point(0, 0)\n");
+}
+
+#[test]
+fn run_test_iter() {
+    let output = run_example("examples/oop/test_iter.py");
+    assert_eq!(output, "next\n");
+}
+
+#[test]
+fn run_special_methods() {
+    let output = run_example("examples/oop/special_methods.py");
+    assert_eq!(
+        output,
+        "Book: Python Guide\nMagazine: Tech Monthly\nnext_value\n"
+    );
+}
