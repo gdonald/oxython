@@ -4,6 +4,56 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
+/// Represents basic Python types for optional type annotations.
+/// This enum will be used for type checking and runtime type information.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Type {
+    /// Integer type (int)
+    Int,
+    /// Floating point type (float)
+    Float,
+    /// String type (str)
+    Str,
+    /// Boolean type (bool)
+    Bool,
+    /// List type (list)
+    List,
+    /// Dictionary type (dict)
+    Dict,
+    /// Tuple type (tuple)
+    Tuple,
+    /// Class type with the class name
+    Class(String),
+    /// Any type (no type constraint)
+    Any,
+    /// None type (nil)
+    None,
+}
+
+impl Type {
+    /// Returns the string representation of the type.
+    pub fn name(&self) -> &str {
+        match self {
+            Type::Int => "int",
+            Type::Float => "float",
+            Type::Str => "str",
+            Type::Bool => "bool",
+            Type::List => "list",
+            Type::Dict => "dict",
+            Type::Tuple => "tuple",
+            Type::Class(name) => name,
+            Type::Any => "Any",
+            Type::None => "None",
+        }
+    }
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
 /// A type alias for a reference-counted Object.
 /// Using Rc allows multiple parts of the interpreter to "own" the same object,
 /// which is essential for a dynamically-typed language with variables and data structures.
@@ -229,6 +279,52 @@ impl PartialEq for ObjectType {
             }
             (ObjectType::Nil, ObjectType::Nil) => true,
             _ => false,
+        }
+    }
+}
+
+impl ObjectType {
+    /// Returns the Type corresponding to this ObjectType.
+    /// This is used for runtime type introspection and type checking.
+    pub fn get_type(&self) -> Type {
+        match self {
+            ObjectType::Integer(_) => Type::Int,
+            ObjectType::Float(_) => Type::Float,
+            ObjectType::String(_) => Type::Str,
+            ObjectType::Boolean(_) => Type::Bool,
+            ObjectType::List(_) => Type::List,
+            ObjectType::Tuple(_) => Type::Tuple,
+            ObjectType::Dict(_) => Type::Dict,
+            ObjectType::Class(class) => Type::Class(class.name.clone()),
+            ObjectType::Instance(instance) => Type::Class(instance.borrow().class.name.clone()),
+            ObjectType::Nil => Type::None,
+            // For functions and other complex types, return Any
+            ObjectType::Function(_)
+            | ObjectType::FunctionPrototype(_)
+            | ObjectType::NativeFunction(_, _)
+            | ObjectType::BoundMethod(_, _)
+            | ObjectType::SuperProxy(_, _) => Type::Any,
+        }
+    }
+
+    /// Returns the type name as a string.
+    pub fn type_name(&self) -> String {
+        match self {
+            ObjectType::Integer(_) => "int".to_string(),
+            ObjectType::Float(_) => "float".to_string(),
+            ObjectType::String(_) => "str".to_string(),
+            ObjectType::Boolean(_) => "bool".to_string(),
+            ObjectType::List(_) => "list".to_string(),
+            ObjectType::Tuple(_) => "tuple".to_string(),
+            ObjectType::Dict(_) => "dict".to_string(),
+            ObjectType::FunctionPrototype(_) => "function".to_string(),
+            ObjectType::Function(_) => "function".to_string(),
+            ObjectType::NativeFunction(_, _) => "builtin_function_or_method".to_string(),
+            ObjectType::Class(_) => "type".to_string(),
+            ObjectType::Instance(instance) => instance.borrow().class.name.clone(),
+            ObjectType::BoundMethod(_, _) => "method".to_string(),
+            ObjectType::SuperProxy(_, _) => "super".to_string(),
+            ObjectType::Nil => "NoneType".to_string(),
         }
     }
 }
