@@ -34,7 +34,7 @@ oxython is the Python programming language implemented in Rust.
     - [x] `nonlocal` Assignments: Expand semantics so nested functions can rebind variables declared in outer scopes once the keyword is available.
     - [x] Initial Execution Test: Connect the whole chain: Lexer $\rightarrow$ Compiler $\rightarrow$ VM. Compile a small script and run the resulting bytecode in the VM to verify functionality.
 
-- [ ] Object-Oriented Features & Types
+- [x] Object-Oriented Features
     - [x] Foundation: Add `class` keyword token, `ClassObject` and `InstanceObject` types to object model, and class-related opcodes (`OpMakeClass`, `OpGetAttr`, `OpSetAttr`).
     - [x] Class Parsing: Implement `parse_class_statement` in compiler to recognize `class ClassName:` syntax, parse method definitions within class body, and emit `OpMakeClass` instruction.
     - [x] Compiler: General Attribute Access
@@ -74,7 +74,32 @@ oxython is the Python programming language implemented in Rust.
         - [x] Method resolution order (MRO) for attribute lookup through parent chain.
         - [x] `super()` builtin for calling parent methods.
         - [x] Special methods: `__str__`, `__repr__`, `__iter__`, `__next__`, etc.
-    - [ ] Optional Type System (Future): Implement a basic structure that allows the programmer to *annotate* variables or function arguments with types, but allows the compiler to skip strict checking if no type is provided.
+
+- [ ] Optional Type System
+    - [ ] Foundation: Type Representation
+        - [ ] Define `Type` enum in object model to represent basic types (`int`, `float`, `str`, `bool`, `list`, `dict`, class types).
+        - [ ] Add optional `type_annotation` field to variable slots and function parameters.
+        - [ ] Extend token definitions to include colon (`:`) for type annotations and arrow (`->`) for return types.
+    - [ ] Lexer & Parser Extensions
+        - [ ] Extend lexer to recognize type annotation syntax (e.g., `x: int`, `def func(a: str) -> int:`).
+        - [ ] Modify parser to parse variable annotations: `name: type = value`.
+        - [ ] Modify parser to parse function parameter annotations: `def func(param: type):`.
+        - [ ] Modify parser to parse function return type annotations: `def func() -> type:`.
+        - [ ] Store type annotations in AST/compiler metadata without enforcing them.
+    - [ ] Runtime Type Information
+        - [ ] Attach type information to function objects for introspection.
+        - [ ] Store variable type annotations in symbol table (compiler-time only, no runtime enforcement).
+        - [ ] Implement `type()` builtin to query object types at runtime.
+    - [ ] Optional Type Checking (Compiler-Time)
+        - [ ] Add compiler flag/mode to enable optional type checking.
+        - [ ] Implement basic type checker that validates annotated variables and function calls.
+        - [ ] Report type mismatches as warnings or errors (configurable).
+        - [ ] Allow unannotated code to bypass type checking entirely.
+    - [ ] Testing & Examples
+        - [ ] Create examples demonstrating type annotations without enforcement.
+        - [ ] Create examples with type checking enabled showing caught type errors.
+        - [ ] Add unit tests for type annotation parsing and storage.
+        - [ ] Add integration tests for optional type checking mode.
 
 - [ ] Module System
     - [ ] Module Object: Define a `Module` runtime type that contains its own global namespace (symbol table) and metadata (name, file path).
