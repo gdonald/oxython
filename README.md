@@ -1,4 +1,4 @@
-# oxython
+## oxython
 
 oxython is the Python programming language implemented in Rust.
 
@@ -6,11 +6,11 @@ oxython is the Python programming language implemented in Rust.
 
 🙂 &nbsp;[PRs](https://github.com/gdonald/oxython/pulls) and [new](https://github.com/gdonald/oxython/issues/new) [issues](https://github.com/gdonald/oxython/issues) are welcome.
 
----
+###
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/gdonald/oxython/blob/main/LICENSE) ![CI](https://github.com/gdonald/oxython/workflows/CI/badge.svg) [![codecov](https://codecov.io/gh/gdonald/oxython/graph/badge.svg?token=GQ4LA1VMRE)](https://codecov.io/gh/gdonald/oxython)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/gdonald/oxython/blob/main/LICENSE) [![CI](https://github.com/gdonald/oxython/workflows/CI/badge.svg)](https://github.com/gdonald/oxython/actions) [![codecov](https://codecov.io/gh/gdonald/oxython/graph/badge.svg?token=GQ4LA1VMRE)](https://codecov.io/gh/gdonald/oxython)
 
-## Run
+### Run with cargo
 
 ```bash
 # Run the REPL:
@@ -20,15 +20,25 @@ cargo run
 cargo run -- examples/oop/class.py
 ```
 
----
+### Run tests
 
-## Architecture
+```bash
+cargo test
+
+# code coverage
+cargo tarpaulin --out Stdout
+
+# or
+cargo tarpaulin --out Html
+```
+
+### Architecture
 
 ![Architecture](https://raw.githubusercontent.com/gdonald/oxython/refs/heads/main/dia/architecture_notes.png)
 
 ![Architecture](https://raw.githubusercontent.com/gdonald/oxython/refs/heads/main/dia/architecture.png)
 
-## Development Roadmap
+### Development Roadmap
 
 - [x] Core Foundation & Lexing
     - [x] Project Setup: Initialize the Rust project with Cargo and add dependencies like `inkwell` (for JIT) and any chosen parsing helpers.
