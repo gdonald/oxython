@@ -1,0 +1,82 @@
+digraph oxython_architecture {
+    // Graph settings
+    rankdir=TB;
+    node [shape=box, style="rounded,filled", fillcolor=lightblue, fontname="Arial"];
+    edge [fontname="Arial", fontsize=10];
+
+    // Define clusters for logical grouping
+    subgraph cluster_entry {
+        label="Entry Point";
+        style=filled;
+        fillcolor=lightyellow;
+
+        main [label="main.rs\nEntry Point", fillcolor=gold];
+    }
+
+    subgraph cluster_frontend {
+        label="Frontend (Lexing & Parsing)";
+        style=filled;
+        fillcolor=lightcyan;
+
+        token [label="token.rs\nToken Definitions\n(Lexer via logos)", fillcolor=lightgreen];
+        compiler [label="compiler.rs\nCompiler/Parser\n• Lexer → Tokens\n• Parser → Bytecode\n• Symbol Tables\n• Function Scopes", fillcolor=lightgreen];
+    }
+
+    subgraph cluster_middle {
+        label="Intermediate Representation";
+        style=filled;
+        fillcolor=lavender;
+
+        bytecode [label="bytecode.rs\nBytecode & Instructions\n• OpCode enum\n• Chunk (code + constants)\n• Program counter"];
+        object [label="object.rs\nObject Model\n• Type enum\n• ObjectType\n• FunctionPrototype\n• FunctionObject\n• ClassObject\n• InstanceObject\n• Upvalues", fillcolor=lightcoral];
+    }
+
+    subgraph cluster_backend {
+        label="Backend (Execution)";
+        style=filled;
+        fillcolor=mistyrose;
+
+        vm [label="vm.rs\nVirtual Machine\n• Stack-based execution\n• OpCode interpreter\n• Call frames\n• Globals/Locals\n• Built-in functions", fillcolor=salmon];
+    }
+
+    subgraph cluster_interface {
+        label="User Interface";
+        style=filled;
+        fillcolor=wheat;
+
+        cli [label="cli.rs\nCLI Interface\n• REPL mode\n• File execution\n• Error handling"];
+    }
+
+    subgraph cluster_external {
+        label="External Inputs";
+        style=filled;
+        fillcolor=white;
+
+        source [label="Python Source Code\n(.py files)", shape=note, fillcolor=white];
+        user [label="User\n(REPL input)", shape=ellipse, fillcolor=white];
+    }
+
+    // Main data flow
+    user -> cli [label="interactive\ninput"];
+    source -> cli [label="file\ninput"];
+    main -> cli [label="run_main()"];
+
+    cli -> compiler [label="compile\nsource code"];
+    cli -> vm [label="execute\nbytecode"];
+
+    compiler -> token [label="uses\nToken enum"];
+    compiler -> bytecode [label="generates\nChunk"];
+    compiler -> object [label="creates\nFunctionPrototype"];
+
+    vm -> bytecode [label="interprets\nOpCodes"];
+    vm -> object [label="manipulates\nObjects"];
+
+    bytecode -> object [label="stores\nconstants"];
+
+    // Detailed relationships
+    compiler -> compiler [label="recursive\ndescent parsing", style=dashed];
+    vm -> vm [label="call frames\nstack", style=dashed];
+
+    // Type system (new additions)
+    object -> compiler [label="Type annotations\nParameter/Local types", style=dotted, color=blue, constraint=false];
+}

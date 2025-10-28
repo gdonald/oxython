@@ -1,0 +1,17 @@
+digraph oxython_notes {
+    // Graph settings
+    rankdir=TB;
+    node [shape=note, style="filled", fontname="Arial"];
+    edge [fontname="Arial", fontsize=10];
+
+    // Architecture notes arranged horizontally
+    {
+        rank=same;
+
+        note1 [label="Compilation Pipeline:\n\n1. Source → Lexer (logos)\n2. Tokens → Parser\n3. AST (implicit) → Bytecode\n4. Bytecode → VM\n\nThe compiler uses recursive\ndescent parsing to convert\nPython source into bytecode.", fillcolor=lightyellow];
+
+        note2 [label="Object System:\n\n• Reference counted (Rc)\n• Garbage collection ready\n• First-class functions\n• OOP support (classes/instances)\n• Optional type annotations\n• Closures with upvalues\n\nAll values are wrapped in\nthe ObjectType enum.", fillcolor=lightcoral];
+
+        note3 [label="Execution Model:\n\n• Stack-based VM\n• Bytecode interpretation\n• Call frame management\n• Closure support\n• Class/Instance system\n• Built-in functions\n\nThe VM executes OpCodes\nand manages the runtime stack.", fillcolor=salmon];
+    }
+}
