@@ -1,5 +1,5 @@
 use crate::bytecode::{Chunk, OpCode};
-use crate::object::{FunctionPrototype, Object, ObjectType, UpvalueDescriptor};
+use crate::object::{FunctionPrototype, Object, ObjectType, Type, UpvalueDescriptor};
 use crate::token::Token;
 use logos::{Lexer, Logos};
 use std::collections::{HashMap, HashSet};
@@ -60,9 +60,43 @@ struct TokenInfo {
     start: usize,
 }
 
+/// Represents a function parameter with optional type annotation.
+#[derive(Debug, Clone)]
+struct Parameter {
+    name: String,
+    #[allow(dead_code)]
+    type_annotation: Option<Type>,
+}
+
+impl Parameter {
+    fn new(name: String, type_annotation: Option<Type>) -> Self {
+        Parameter {
+            name,
+            type_annotation,
+        }
+    }
+}
+
+/// Represents a local variable with optional type annotation.
+#[derive(Debug, Clone)]
+struct Local {
+    name: String,
+    #[allow(dead_code)]
+    type_annotation: Option<Type>,
+}
+
+impl Local {
+    fn new(name: String, type_annotation: Option<Type>) -> Self {
+        Local {
+            name,
+            type_annotation,
+        }
+    }
+}
+
 struct FunctionScope {
-    parameters: Vec<String>,
-    locals: Vec<String>,
+    parameters: Vec<Parameter>,
+    locals: Vec<Local>,
     upvalues: Vec<UpvalueDescriptor>,
     upvalue_map: HashMap<String, usize>,
     nonlocals: HashSet<String>,
@@ -70,8 +104,12 @@ struct FunctionScope {
 
 impl FunctionScope {
     fn new(parameters: Vec<String>) -> Self {
+        let params = parameters
+            .into_iter()
+            .map(|name| Parameter::new(name, None))
+            .collect();
         FunctionScope {
-            parameters,
+            parameters: params,
             locals: Vec::new(),
             upvalues: Vec::new(),
             upvalue_map: HashMap::new(),
@@ -80,11 +118,11 @@ impl FunctionScope {
     }
 
     fn resolve(&self, name: &str) -> Option<usize> {
-        if let Some(idx) = self.parameters.iter().position(|param| param == name) {
+        if let Some(idx) = self.parameters.iter().position(|param| param.name == name) {
             return Some(idx + 1);
         }
 
-        if let Some(idx) = self.locals.iter().position(|local| local == name) {
+        if let Some(idx) = self.locals.iter().position(|local| local.name == name) {
             return Some(self.parameters.len() + 1 + idx);
         }
 
@@ -92,15 +130,15 @@ impl FunctionScope {
     }
 
     fn declare(&mut self, name: String) -> (usize, bool) {
-        if let Some(idx) = self.parameters.iter().position(|param| param == &name) {
+        if let Some(idx) = self.parameters.iter().position(|param| param.name == name) {
             return (idx + 1, false);
         }
 
-        if let Some(idx) = self.locals.iter().position(|local| local == &name) {
+        if let Some(idx) = self.locals.iter().position(|local| local.name == name) {
             return (self.parameters.len() + 1 + idx, false);
         }
 
-        self.locals.push(name);
+        self.locals.push(Local::new(name, None));
         let idx = self.locals.len() - 1;
         (self.parameters.len() + 1 + idx, true)
     }

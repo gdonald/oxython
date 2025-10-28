@@ -2,9 +2,31 @@
 
 oxython is the Python programming language implemented in Rust.
 
-![CI](https://github.com/gdonald/oxython/workflows/CI/badge.svg) [![codecov](https://codecov.io/gh/gdonald/oxython/graph/badge.svg?token=GQ4LA1VMRE)](https://codecov.io/gh/gdonald/oxython)
+⚠️ &nbsp;It's still very early in development.
+
+🙂 &nbsp;[PRs](https://github.com/gdonald/oxython/pulls) and [new](https://github.com/gdonald/oxython/issues/new) [issues](https://github.com/gdonald/oxython/issues) are welcome.
 
 ---
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/gdonald/oxython/blob/main/LICENSE) ![CI](https://github.com/gdonald/oxython/workflows/CI/badge.svg) [![codecov](https://codecov.io/gh/gdonald/oxython/graph/badge.svg?token=GQ4LA1VMRE)](https://codecov.io/gh/gdonald/oxython)
+
+## Run
+
+```bash
+# Run the REPL:
+cargo run
+
+# Run a script:
+cargo run -- examples/oop/class.py
+```
+
+---
+
+## Architecture
+
+![Architecture](https://raw.githubusercontent.com/gdonald/oxython/refs/heads/main/dia/architecture_notes.png)
+
+![Architecture](https://raw.githubusercontent.com/gdonald/oxython/refs/heads/main/dia/architecture.png)
 
 ## Development Roadmap
 
@@ -76,10 +98,10 @@ oxython is the Python programming language implemented in Rust.
         - [x] Special methods: `__str__`, `__repr__`, `__iter__`, `__next__`, etc.
 
 - [ ] Optional Type System
-    - [ ] Foundation: Type Representation
-        - [ ] Define `Type` enum in object model to represent basic types (`int`, `float`, `str`, `bool`, `list`, `dict`, class types).
-        - [ ] Add optional `type_annotation` field to variable slots and function parameters.
-        - [ ] Extend token definitions to include colon (`:`) for type annotations and arrow (`->`) for return types.
+    - [x] Foundation: Type Representation
+        - [x] Define `Type` enum in object model to represent basic types (`int`, `float`, `str`, `bool`, `list`, `dict`, class types).
+        - [x] Add optional `type_annotation` field to variable slots and function parameters.
+        - [x] Extend token definitions to include colon (`:`) for type annotations and arrow (`->`) for return types.
     - [ ] Lexer & Parser Extensions
         - [ ] Extend lexer to recognize type annotation syntax (e.g., `x: int`, `def func(a: str) -> int:`).
         - [ ] Modify parser to parse variable annotations: `name: type = value`.

@@ -126,6 +126,9 @@ pub enum Token {
     #[token(":")]
     Colon,
 
+    #[token("->")]
+    Arrow,
+
     #[default]
     Unknown,
 }

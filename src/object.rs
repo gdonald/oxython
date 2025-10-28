@@ -93,6 +93,10 @@ pub struct FunctionObject {
     pub arity: usize,
     pub chunk: Chunk,
     pub upvalues: Vec<UpvalueRef>,
+    #[allow(dead_code)]
+    pub parameter_types: Vec<Option<Type>>,
+    #[allow(dead_code)]
+    pub return_type: Option<Type>,
 }
 
 impl FunctionObject {
@@ -102,6 +106,26 @@ impl FunctionObject {
             arity,
             chunk,
             upvalues,
+            parameter_types: Vec::new(),
+            return_type: None,
+        }
+    }
+
+    pub fn new_with_types(
+        name: String,
+        arity: usize,
+        chunk: Chunk,
+        upvalues: Vec<UpvalueRef>,
+        parameter_types: Vec<Option<Type>>,
+        return_type: Option<Type>,
+    ) -> Self {
+        FunctionObject {
+            name,
+            arity,
+            chunk,
+            upvalues,
+            parameter_types,
+            return_type,
         }
     }
 }
@@ -119,6 +143,10 @@ pub struct FunctionPrototype {
     pub arity: usize,
     pub chunk: Chunk,
     pub upvalues: Vec<UpvalueDescriptor>,
+    #[allow(dead_code)]
+    pub parameter_types: Vec<Option<Type>>,
+    #[allow(dead_code)]
+    pub return_type: Option<Type>,
 }
 
 impl FunctionPrototype {
@@ -128,6 +156,26 @@ impl FunctionPrototype {
             arity,
             chunk,
             upvalues,
+            parameter_types: Vec::new(),
+            return_type: None,
+        }
+    }
+
+    pub fn new_with_types(
+        name: String,
+        arity: usize,
+        chunk: Chunk,
+        upvalues: Vec<UpvalueDescriptor>,
+        parameter_types: Vec<Option<Type>>,
+        return_type: Option<Type>,
+    ) -> Self {
+        FunctionPrototype {
+            name,
+            arity,
+            chunk,
+            upvalues,
+            parameter_types,
+            return_type,
         }
     }
 }
