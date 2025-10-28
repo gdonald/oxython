@@ -119,7 +119,38 @@ cargo tarpaulin --out Html
         - [x] Modify parser to parse function return type annotations: `def func() -> type:`.
         - [x] Store type annotations in AST/compiler metadata without enforcing them.
     - [ ] Runtime Type Information
-        - [ ] Attach type information to function objects for introspection.
+        - [ ] Function Introspection Attributes (Phase 1: Basic Attributes)
+            - [ ] Extend `OpGetAttr` in VM to support `Function` and `FunctionPrototype` objects.
+            - [ ] Implement `__name__` attribute access for functions (returns function name as string).
+            - [ ] Add `__doc__` field to `FunctionObject` and `FunctionPrototype` for docstrings.
+            - [ ] Implement `__doc__` attribute access for functions.
+            - [ ] Create example demonstrating basic function attribute access (`func.__name__`, `func.__doc__`).
+            - [ ] Write tests for basic function attributes.
+        - [ ] Function Introspection Attributes (Phase 2: Type Annotations)
+            - [ ] Implement `__annotations__` attribute that returns a Dict object with parameter names and type annotations.
+            - [ ] Format `__annotations__` dict: parameter names as keys, type names as string values, 'return' key for return type.
+            - [ ] Remove `#[allow(dead_code)]` from `parameter_types` and `return_type` fields once they're actively used.
+            - [ ] Create example demonstrating `__annotations__` access and type introspection.
+            - [ ] Write tests for `__annotations__` attribute.
+        - [ ] Function Introspection Attributes (Phase 3: Code & Module)
+            - [ ] Implement `__code__` attribute (returns reference to the function's bytecode chunk or code object).
+            - [ ] Add `module` field to `FunctionObject` and `FunctionPrototype` to track defining module.
+            - [ ] Implement `__module__` attribute access (returns module name as string, default to `__main__`).
+            - [ ] Create example demonstrating `__code__` and `__module__` access.
+            - [ ] Write tests for code and module attributes.
+        - [ ] Function Introspection Attributes (Phase 4: Namespaces & Closures)
+            - [ ] Add `globals` field to `FunctionObject` to reference the global namespace where function was defined.
+            - [ ] Implement `__globals__` attribute (returns reference to global namespace dict).
+            - [ ] Implement `__closure__` attribute (returns tuple of cell objects from upvalues, or None).
+            - [ ] Implement `__qualname__` attribute for qualified names (handles nested functions).
+            - [ ] Create example demonstrating namespace and closure introspection.
+            - [ ] Write tests for `__globals__`, `__closure__`, and `__qualname__`.
+        - [ ] Function Introspection Attributes (Phase 5: Default Parameters - Future)
+            - [ ] Note: Depends on "Default Parameters" implementation under "Advanced Function Features".
+            - [ ] Implement `__defaults__` attribute (tuple of default values for positional parameters).
+            - [ ] Implement `__kwdefaults__` attribute (dict of default values for keyword-only parameters).
+            - [ ] Create example demonstrating default parameter introspection.
+            - [ ] Write tests for default parameter attributes.
         - [ ] Store variable type annotations in symbol table (compiler-time only, no runtime enforcement).
         - [ ] Implement `type()` builtin to query object types at runtime.
     - [ ] Optional Type Checking (Compiler-Time)
