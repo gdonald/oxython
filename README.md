@@ -112,12 +112,12 @@ cargo tarpaulin --out Html
         - [x] Define `Type` enum in object model to represent basic types (`int`, `float`, `str`, `bool`, `list`, `dict`, class types).
         - [x] Add optional `type_annotation` field to variable slots and function parameters.
         - [x] Extend token definitions to include colon (`:`) for type annotations and arrow (`->`) for return types.
-    - [ ] Lexer & Parser Extensions
-        - [ ] Extend lexer to recognize type annotation syntax (e.g., `x: int`, `def func(a: str) -> int:`).
-        - [ ] Modify parser to parse variable annotations: `name: type = value`.
-        - [ ] Modify parser to parse function parameter annotations: `def func(param: type):`.
-        - [ ] Modify parser to parse function return type annotations: `def func() -> type:`.
-        - [ ] Store type annotations in AST/compiler metadata without enforcing them.
+    - [x] Lexer & Parser Extensions
+        - [x] Extend lexer to recognize type annotation syntax (e.g., `x: int`, `def func(a: str) -> int:`).
+        - [x] Modify parser to parse variable annotations: `name: type = value`.
+        - [x] Modify parser to parse function parameter annotations: `def func(param: type):`.
+        - [x] Modify parser to parse function return type annotations: `def func() -> type:`.
+        - [x] Store type annotations in AST/compiler metadata without enforcing them.
     - [ ] Runtime Type Information
         - [ ] Attach type information to function objects for introspection.
         - [ ] Store variable type annotations in symbol table (compiler-time only, no runtime enforcement).

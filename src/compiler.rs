@@ -103,6 +103,7 @@ struct FunctionScope {
 }
 
 impl FunctionScope {
+    #[allow(dead_code)]
     fn new(parameters: Vec<String>) -> Self {
         let params = parameters
             .into_iter()
@@ -110,6 +111,16 @@ impl FunctionScope {
             .collect();
         FunctionScope {
             parameters: params,
+            locals: Vec::new(),
+            upvalues: Vec::new(),
+            upvalue_map: HashMap::new(),
+            nonlocals: HashSet::new(),
+        }
+    }
+
+    fn new_with_params(parameters: Vec<Parameter>) -> Self {
+        FunctionScope {
+            parameters,
             locals: Vec::new(),
             upvalues: Vec::new(),
             upvalue_map: HashMap::new(),
@@ -139,6 +150,20 @@ impl FunctionScope {
         }
 
         self.locals.push(Local::new(name, None));
+        let idx = self.locals.len() - 1;
+        (self.parameters.len() + 1 + idx, true)
+    }
+
+    fn declare_with_type(&mut self, name: String, type_annotation: Option<Type>) -> (usize, bool) {
+        if let Some(idx) = self.parameters.iter().position(|param| param.name == name) {
+            return (idx + 1, false);
+        }
+
+        if let Some(idx) = self.locals.iter().position(|local| local.name == name) {
+            return (self.parameters.len() + 1 + idx, false);
+        }
+
+        self.locals.push(Local::new(name, type_annotation));
         let idx = self.locals.len() - 1;
         (self.parameters.len() + 1 + idx, true)
     }
@@ -351,16 +376,27 @@ impl<'a> Compiler<'a> {
             return;
         }
 
-        let mut parameters: Vec<String> = Vec::new();
+        let mut parameters: Vec<Parameter> = Vec::new();
         if self.lexer.clone().next() != Some(Ok(Token::RParen)) {
             loop {
-                match self.lexer.next() {
-                    Some(Ok(Token::Identifier(param))) => parameters.push(param),
+                let param_name = match self.lexer.next() {
+                    Some(Ok(Token::Identifier(param))) => param,
                     _ => {
                         self.had_error = true;
                         return;
                     }
-                }
+                };
+
+                // Check for type annotation: param: type
+                let type_annotation = if matches!(self.lexer.clone().next(), Some(Ok(Token::Colon)))
+                {
+                    self.lexer.next(); // consume ':'
+                    self.parse_type_annotation()
+                } else {
+                    None
+                };
+
+                parameters.push(Parameter::new(param_name, type_annotation));
 
                 match self.lexer.clone().next() {
                     Some(Ok(Token::Comma)) => {
@@ -385,6 +421,14 @@ impl<'a> Compiler<'a> {
             return;
         }
 
+        // Check for return type annotation: -> type
+        let _return_type = if matches!(self.lexer.clone().next(), Some(Ok(Token::Arrow))) {
+            self.lexer.next(); // consume '->'
+            self.parse_type_annotation()
+        } else {
+            None
+        };
+
         let colon_end = if let Some(Ok(Token::Colon)) = self.lexer.next() {
             self.lexer.span().end
         } else {
@@ -397,7 +441,7 @@ impl<'a> Compiler<'a> {
         let parent_indent = self.current_indent;
 
         self.function_scopes
-            .push(FunctionScope::new(parameters.clone()));
+            .push(FunctionScope::new_with_params(parameters.clone()));
         self.function_depth += 1;
 
         let body_had_statement = self.parse_suite(parent_indent, colon_end);
@@ -525,16 +569,36 @@ impl<'a> Compiler<'a> {
                     return;
                 }
 
-                let mut parameters: Vec<String> = Vec::new();
+                let mut parameters: Vec<Parameter> = Vec::new();
                 if self.lexer.clone().next() != Some(Ok(Token::RParen)) {
                     loop {
-                        match self.lexer.next() {
-                            Some(Ok(Token::Identifier(param))) => parameters.push(param),
+                        let param_name = match self.lexer.next() {
+                            Some(Ok(Token::Identifier(param))) => param,
                             _ => {
                                 self.had_error = true;
                                 return;
                             }
-                        }
+                        };
+
+                        // Check for type annotation: param: type
+                        let type_annotation =
+                            if matches!(self.lexer.clone().next(), Some(Ok(Token::Colon))) {
+                                // Need to differentiate between parameter type annotation and method end colon
+                                // Look ahead to see if this is followed by a type or if it's the method colon
+                                let mut lookahead = self.lexer.clone();
+                                lookahead.next(); // consume ':'
+                                match lookahead.next() {
+                                    Some(Ok(Token::Identifier(_))) => {
+                                        self.lexer.next(); // consume ':'
+                                        self.parse_type_annotation()
+                                    }
+                                    _ => None,
+                                }
+                            } else {
+                                None
+                            };
+
+                        parameters.push(Parameter::new(param_name, type_annotation));
 
                         match self.lexer.clone().next() {
                             Some(Ok(Token::Comma)) => {
@@ -559,6 +623,14 @@ impl<'a> Compiler<'a> {
                     return;
                 }
 
+                // Check for return type annotation: -> type
+                let _return_type = if matches!(self.lexer.clone().next(), Some(Ok(Token::Arrow))) {
+                    self.lexer.next(); // consume '->'
+                    self.parse_type_annotation()
+                } else {
+                    None
+                };
+
                 let method_colon_end = if let Some(Ok(Token::Colon)) = self.lexer.next() {
                     self.lexer.span().end
                 } else {
@@ -570,7 +642,7 @@ impl<'a> Compiler<'a> {
                 let outer_loop_stack = std::mem::take(&mut self.loop_stack);
 
                 self.function_scopes
-                    .push(FunctionScope::new(parameters.clone()));
+                    .push(FunctionScope::new_with_params(parameters.clone()));
                 self.function_depth += 1;
 
                 // Method body should be indented relative to the method definition (at class_body_indent)
@@ -743,7 +815,7 @@ impl<'a> Compiler<'a> {
         let mut bracket_depth = 0;
         let mut has_dot = false;
 
-        for token_result in lookahead {
+        while let Some(token_result) = lookahead.next() {
             match token_result {
                 Ok(Token::LBracket) => bracket_depth += 1,
                 Ok(Token::RBracket) => {
@@ -772,7 +844,16 @@ impl<'a> Compiler<'a> {
                     return None
                 }
                 Ok(Token::RParen) if bracket_depth == 0 => return None,
-                Ok(Token::Colon) if bracket_depth == 0 => return None,
+                Ok(Token::Colon) if bracket_depth == 0 => {
+                    // Check if this is a type annotation (x: int = value)
+                    // Skip the type annotation token if present
+                    match lookahead.next() {
+                        Some(Ok(Token::Identifier(_))) => {
+                            // Continue to check for assignment operator after type annotation
+                        }
+                        _ => return None,
+                    }
+                }
                 Err(_) => return None,
                 _ => {}
             }
@@ -2011,6 +2092,15 @@ impl<'a> Compiler<'a> {
         } else {
             return; // Should not happen
         };
+
+        // Check for type annotation: name: type
+        let type_annotation = if matches!(self.lexer.clone().next(), Some(Ok(Token::Colon))) {
+            self.lexer.next(); // consume ':'
+            self.parse_type_annotation()
+        } else {
+            None
+        };
+
         let mut target = self.resolve_variable(&name);
         let name_idx = self.add_constant(Rc::new(ObjectType::String(name.clone())));
 
@@ -2102,7 +2192,9 @@ impl<'a> Compiler<'a> {
 
                         if !is_nonlocal {
                             // Not nonlocal, so create as local variable
-                            if let Some((idx, is_new)) = self.declare_local(name.clone()) {
+                            if let Some((idx, is_new)) =
+                                self.declare_local_with_type(name.clone(), type_annotation)
+                            {
                                 target = VariableTarget::Local(idx);
                                 if is_new {
                                     self.emit_nil();
@@ -2197,6 +2289,25 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    /// Parses a type annotation from the token stream.
+    /// Expects to be called when the next token is a type name (e.g., int, float, str, etc.)
+    /// Returns Some(Type) if a valid type annotation is found, None otherwise.
+    fn parse_type_annotation(&mut self) -> Option<Type> {
+        match self.lexer.next() {
+            Some(Ok(Token::Identifier(name))) => match name.as_str() {
+                "int" => Some(Type::Int),
+                "float" => Some(Type::Float),
+                "str" => Some(Type::Str),
+                "bool" => Some(Type::Bool),
+                "list" => Some(Type::List),
+                "dict" => Some(Type::Dict),
+                "tuple" => Some(Type::Tuple),
+                _ => Some(Type::Class(name)),
+            },
+            _ => None,
+        }
+    }
+
     fn resolve_local(&self, name: &str) -> Option<usize> {
         self.function_scopes
             .last()
@@ -2266,6 +2377,21 @@ impl<'a> Compiler<'a> {
         }
 
         Some(scope.declare(name))
+    }
+
+    fn declare_local_with_type(
+        &mut self,
+        name: String,
+        type_annotation: Option<Type>,
+    ) -> Option<(usize, bool)> {
+        let scope = self.function_scopes.last_mut()?;
+
+        if scope.parameters.len() + scope.locals.len() + 1 >= u8::MAX as usize {
+            self.had_error = true;
+            return None;
+        }
+
+        Some(scope.declare_with_type(name, type_annotation))
     }
 
     fn emit_nil(&mut self) {

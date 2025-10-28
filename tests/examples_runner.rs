@@ -207,3 +207,46 @@ fn run_special_methods() {
         "Book: Python Guide\nMagazine: Tech Monthly\nnext_value\n"
     );
 }
+
+// ============================================================================
+// TYPE ANNOTATIONS
+// ============================================================================
+
+#[test]
+fn run_basic_variables() {
+    let output = run_example("examples/type-annotations/basic_variables.py");
+    assert_eq!(
+        output,
+        "x = 42\ny = 3.14\nname = Alice\nis_active = True\nresult = 52\n"
+    );
+}
+
+#[test]
+fn run_function_annotations() {
+    let output = run_example("examples/type-annotations/function_annotations.py");
+    assert_eq!(output, "Hello, Bob\n10 + 20 = 30\n3.5 * 2.0 = 7\n");
+}
+
+#[test]
+fn run_collection_types() {
+    let output = run_example("examples/type-annotations/collection_types.py");
+    assert_eq!(
+        output,
+        "numbers = [1, 2, 3, 4, 5]\nscores = {'Alice': 90, 'Bob': 85}\nlength of numbers: 5\nAlice's score: 90\n"
+    );
+}
+
+#[test]
+fn run_mixed_annotated() {
+    let output = run_example("examples/type-annotations/mixed_annotated.py");
+    assert_eq!(
+        output,
+        "calculate(100, 50) = 150\nprocess(10) = 20\nx + z = 150\ny + message = test hello\n"
+    );
+}
+
+#[test]
+fn run_class_annotations() {
+    let output = run_example("examples/type-annotations/class_annotations.py");
+    assert_eq!(output, "Alice\n5 + 10 = 15\n2.5 * 4.0 = 10\n");
+}

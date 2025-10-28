@@ -169,3 +169,70 @@ build_doubles(4)
         other => panic!("expected list result, got {:?}", other),
     }
 }
+
+#[test]
+fn test_variable_type_annotation() {
+    let source = "
+x: int = 42
+y: str = 'hello'
+z: float = 3.14
+x + 1
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(43));
+}
+
+#[test]
+fn test_function_parameter_type_annotations() {
+    let source = "
+def greet(name: str, age: int) -> str:
+    return 'hello'
+
+greet('Alice', 30)
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::String("hello".to_string()));
+}
+
+#[test]
+fn test_function_return_type_annotation() {
+    let source = "
+def add(a: int, b: int) -> int:
+    return a + b
+
+add(10, 20)
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(30));
+}
+
+#[test]
+fn test_mixed_annotated_and_unannotated_vars() {
+    let source = "
+x: int = 5
+y = 10
+z: float = 2.5
+x + y
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(15));
+}
+
+#[test]
+fn test_local_variable_type_annotation() {
+    let source = "
+def test():
+    x: int = 100
+    y: str = 'test'
+    return x + 50
+
+test()
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(150));
+}
