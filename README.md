@@ -119,13 +119,13 @@ cargo tarpaulin --out Html
         - [x] Modify parser to parse function return type annotations: `def func() -> type:`.
         - [x] Store type annotations in AST/compiler metadata without enforcing them.
     - [ ] Runtime Type Information
-        - [ ] Function Introspection Attributes (Phase 1: Basic Attributes)
-            - [ ] Extend `OpGetAttr` in VM to support `Function` and `FunctionPrototype` objects.
-            - [ ] Implement `__name__` attribute access for functions (returns function name as string).
-            - [ ] Add `__doc__` field to `FunctionObject` and `FunctionPrototype` for docstrings.
-            - [ ] Implement `__doc__` attribute access for functions.
-            - [ ] Create example demonstrating basic function attribute access (`func.__name__`, `func.__doc__`).
-            - [ ] Write tests for basic function attributes.
+        - [x] Function Introspection Attributes (Phase 1: Basic Attributes)
+            - [x] Extend `OpGetAttr` in VM to support `Function` and `FunctionPrototype` objects.
+            - [x] Implement `__name__` attribute access for functions (returns function name as string).
+            - [x] Add `__doc__` field to `FunctionObject` and `FunctionPrototype` for docstrings.
+            - [x] Implement `__doc__` attribute access for functions.
+            - [x] Create example demonstrating basic function attribute access (`func.__name__`, `func.__doc__`).
+            - [x] Write tests for basic function attributes.
         - [ ] Function Introspection Attributes (Phase 2: Type Annotations)
             - [ ] Implement `__annotations__` attribute that returns a Dict object with parameter names and type annotations.
             - [ ] Format `__annotations__` dict: parameter names as keys, type names as string values, 'return' key for return type.

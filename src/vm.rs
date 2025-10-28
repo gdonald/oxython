@@ -858,6 +858,44 @@ impl VM {
                                 return InterpretResult::RuntimeError;
                             }
                         }
+                        ObjectType::Function(func) => {
+                            // Function introspection attributes
+                            match attr_name.as_str() {
+                                "__name__" => {
+                                    let name = Rc::new(ObjectType::String(func.name.clone()));
+                                    self.push(name);
+                                }
+                                "__doc__" => {
+                                    let doc = match &func.doc {
+                                        Some(docstring) => {
+                                            Rc::new(ObjectType::String(docstring.clone()))
+                                        }
+                                        None => Rc::new(ObjectType::Nil),
+                                    };
+                                    self.push(doc);
+                                }
+                                _ => return InterpretResult::RuntimeError,
+                            }
+                        }
+                        ObjectType::FunctionPrototype(proto) => {
+                            // Function prototype introspection attributes
+                            match attr_name.as_str() {
+                                "__name__" => {
+                                    let name = Rc::new(ObjectType::String(proto.name.clone()));
+                                    self.push(name);
+                                }
+                                "__doc__" => {
+                                    let doc = match &proto.doc {
+                                        Some(docstring) => {
+                                            Rc::new(ObjectType::String(docstring.clone()))
+                                        }
+                                        None => Rc::new(ObjectType::Nil),
+                                    };
+                                    self.push(doc);
+                                }
+                                _ => return InterpretResult::RuntimeError,
+                            }
+                        }
                         _ => return InterpretResult::RuntimeError,
                     }
                 }

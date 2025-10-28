@@ -250,3 +250,15 @@ fn run_class_annotations() {
     let output = run_example("examples/type-annotations/class_annotations.py");
     assert_eq!(output, "Alice\n5 + 10 = 15\n2.5 * 4.0 = 10\n");
 }
+
+#[test]
+fn test_introspection_function_name() {
+    let output = run_example("examples/introspection/function_name.py");
+    assert_eq!(output, "greet\ncalculate\n");
+}
+
+#[test]
+fn test_introspection_basic_attributes() {
+    let output = run_example("examples/introspection/basic_attributes.py");
+    assert_eq!(output, "greet.__name__ = greet\ncalculate.__name__ = calculate\ngreet.__doc__ = nil\ncalculate.__doc__ = nil\n");
+}

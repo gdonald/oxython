@@ -2120,3 +2120,46 @@ result = it.__next__()
     let mut vm = VM::new();
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
 }
+
+#[test]
+fn test_function_name_attribute() {
+    let source = r#"
+def greet(name):
+    return "Hello, " + name
+
+print(greet.__name__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_doc_attribute() {
+    let source = r#"
+def calculate(x, y):
+    return x + y
+
+print(calculate.__doc__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_multiple_function_attributes() {
+    let source = r#"
+def add(a, b):
+    return a + b
+
+def multiply(x, y):
+    return x * y
+
+print(add.__name__)
+print(multiply.__name__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}

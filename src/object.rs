@@ -97,6 +97,7 @@ pub struct FunctionObject {
     pub parameter_types: Vec<Option<Type>>,
     #[allow(dead_code)]
     pub return_type: Option<Type>,
+    pub doc: Option<String>,
 }
 
 impl FunctionObject {
@@ -108,6 +109,7 @@ impl FunctionObject {
             upvalues,
             parameter_types: Vec::new(),
             return_type: None,
+            doc: None,
         }
     }
 
@@ -126,6 +128,7 @@ impl FunctionObject {
             upvalues,
             parameter_types,
             return_type,
+            doc: None,
         }
     }
 }
@@ -147,6 +150,7 @@ pub struct FunctionPrototype {
     pub parameter_types: Vec<Option<Type>>,
     #[allow(dead_code)]
     pub return_type: Option<Type>,
+    pub doc: Option<String>,
 }
 
 impl FunctionPrototype {
@@ -158,6 +162,7 @@ impl FunctionPrototype {
             upvalues,
             parameter_types: Vec::new(),
             return_type: None,
+            doc: None,
         }
     }
 
@@ -176,6 +181,7 @@ impl FunctionPrototype {
             upvalues,
             parameter_types,
             return_type,
+            doc: None,
         }
     }
 }
