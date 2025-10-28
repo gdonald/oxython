@@ -2163,3 +2163,55 @@ print(multiply.__name__)
     let mut vm = VM::new();
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
 }
+
+#[test]
+fn test_function_annotations_with_types() {
+    let source = r#"
+def add(x: int, y: int) -> int:
+    return x + y
+
+print(add.__annotations__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_annotations_without_types() {
+    let source = r#"
+def greet(name):
+    return "Hello, " + name
+
+print(greet.__annotations__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_annotations_mixed_types() {
+    let source = r#"
+def process(data: str, count, flag: bool) -> str:
+    return data
+
+print(process.__annotations__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_annotations_all_basic_types() {
+    let source = r#"
+def test_all(a: int, b: float, c: str, d: bool) -> list:
+    return []
+
+print(test_all.__annotations__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}

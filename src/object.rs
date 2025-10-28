@@ -93,9 +93,8 @@ pub struct FunctionObject {
     pub arity: usize,
     pub chunk: Chunk,
     pub upvalues: Vec<UpvalueRef>,
-    #[allow(dead_code)]
+    pub parameter_names: Vec<String>,
     pub parameter_types: Vec<Option<Type>>,
-    #[allow(dead_code)]
     pub return_type: Option<Type>,
     pub doc: Option<String>,
 }
@@ -107,6 +106,7 @@ impl FunctionObject {
             arity,
             chunk,
             upvalues,
+            parameter_names: Vec::new(),
             parameter_types: Vec::new(),
             return_type: None,
             doc: None,
@@ -118,6 +118,7 @@ impl FunctionObject {
         arity: usize,
         chunk: Chunk,
         upvalues: Vec<UpvalueRef>,
+        parameter_names: Vec<String>,
         parameter_types: Vec<Option<Type>>,
         return_type: Option<Type>,
     ) -> Self {
@@ -126,6 +127,7 @@ impl FunctionObject {
             arity,
             chunk,
             upvalues,
+            parameter_names,
             parameter_types,
             return_type,
             doc: None,
@@ -146,9 +148,8 @@ pub struct FunctionPrototype {
     pub arity: usize,
     pub chunk: Chunk,
     pub upvalues: Vec<UpvalueDescriptor>,
-    #[allow(dead_code)]
+    pub parameter_names: Vec<String>,
     pub parameter_types: Vec<Option<Type>>,
-    #[allow(dead_code)]
     pub return_type: Option<Type>,
     pub doc: Option<String>,
 }
@@ -160,6 +161,7 @@ impl FunctionPrototype {
             arity,
             chunk,
             upvalues,
+            parameter_names: Vec::new(),
             parameter_types: Vec::new(),
             return_type: None,
             doc: None,
@@ -171,6 +173,7 @@ impl FunctionPrototype {
         arity: usize,
         chunk: Chunk,
         upvalues: Vec<UpvalueDescriptor>,
+        parameter_names: Vec<String>,
         parameter_types: Vec<Option<Type>>,
         return_type: Option<Type>,
     ) -> Self {
@@ -179,6 +182,7 @@ impl FunctionPrototype {
             arity,
             chunk,
             upvalues,
+            parameter_names,
             parameter_types,
             return_type,
             doc: None,

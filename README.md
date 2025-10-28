@@ -126,12 +126,12 @@ cargo tarpaulin --out Html
             - [x] Implement `__doc__` attribute access for functions.
             - [x] Create example demonstrating basic function attribute access (`func.__name__`, `func.__doc__`).
             - [x] Write tests for basic function attributes.
-        - [ ] Function Introspection Attributes (Phase 2: Type Annotations)
-            - [ ] Implement `__annotations__` attribute that returns a Dict object with parameter names and type annotations.
-            - [ ] Format `__annotations__` dict: parameter names as keys, type names as string values, 'return' key for return type.
-            - [ ] Remove `#[allow(dead_code)]` from `parameter_types` and `return_type` fields once they're actively used.
-            - [ ] Create example demonstrating `__annotations__` access and type introspection.
-            - [ ] Write tests for `__annotations__` attribute.
+        - [x] Function Introspection Attributes (Phase 2: Type Annotations)
+            - [x] Implement `__annotations__` attribute that returns a Dict object with parameter names and type annotations.
+            - [x] Format `__annotations__` dict: parameter names as keys, type names as string values, 'return' key for return type.
+            - [x] Remove `#[allow(dead_code)]` from `parameter_types` and `return_type` fields once they're actively used.
+            - [x] Create example demonstrating `__annotations__` access and type introspection.
+            - [x] Write tests for `__annotations__` attribute.
         - [ ] Function Introspection Attributes (Phase 3: Code & Module)
             - [ ] Implement `__code__` attribute (returns reference to the function's bytecode chunk or code object).
             - [ ] Add `module` field to `FunctionObject` and `FunctionPrototype` to track defining module.

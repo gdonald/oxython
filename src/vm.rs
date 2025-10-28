@@ -267,13 +267,17 @@ impl VM {
                             captured.push(upvalue);
                         }
                     }
-                    let function = Rc::new(FunctionObject::new(
+                    let mut function = FunctionObject::new_with_types(
                         proto.name.clone(),
                         proto.arity,
                         proto.chunk.clone(),
                         captured,
-                    ));
-                    self.push(Rc::new(ObjectType::Function(function)));
+                        proto.parameter_names.clone(),
+                        proto.parameter_types.clone(),
+                        proto.return_type.clone(),
+                    );
+                    function.doc = proto.doc.clone();
+                    self.push(Rc::new(ObjectType::Function(Rc::new(function))));
                 }
                 OpCode::OpGetLocal => {
                     let slot = self.read_byte() as usize;
@@ -874,6 +878,32 @@ impl VM {
                                     };
                                     self.push(doc);
                                 }
+                                "__annotations__" => {
+                                    // Build a Dict with parameter names and type annotations
+                                    let mut annotations: Vec<(String, Object)> = Vec::new();
+
+                                    // Add parameter type annotations
+                                    for (i, param_name) in func.parameter_names.iter().enumerate() {
+                                        if let Some(Some(param_type)) = func.parameter_types.get(i)
+                                        {
+                                            let type_str = Rc::new(ObjectType::String(
+                                                param_type.name().to_string(),
+                                            ));
+                                            annotations.push((param_name.clone(), type_str));
+                                        }
+                                    }
+
+                                    // Add return type annotation with 'return' key
+                                    if let Some(return_type) = &func.return_type {
+                                        let type_str = Rc::new(ObjectType::String(
+                                            return_type.name().to_string(),
+                                        ));
+                                        annotations.push(("return".to_string(), type_str));
+                                    }
+
+                                    let annotations_dict = Rc::new(ObjectType::Dict(annotations));
+                                    self.push(annotations_dict);
+                                }
                                 _ => return InterpretResult::RuntimeError,
                             }
                         }
@@ -892,6 +922,33 @@ impl VM {
                                         None => Rc::new(ObjectType::Nil),
                                     };
                                     self.push(doc);
+                                }
+                                "__annotations__" => {
+                                    // Build a Dict with parameter names and type annotations
+                                    let mut annotations: Vec<(String, Object)> = Vec::new();
+
+                                    // Add parameter type annotations
+                                    for (i, param_name) in proto.parameter_names.iter().enumerate()
+                                    {
+                                        if let Some(Some(param_type)) = proto.parameter_types.get(i)
+                                        {
+                                            let type_str = Rc::new(ObjectType::String(
+                                                param_type.name().to_string(),
+                                            ));
+                                            annotations.push((param_name.clone(), type_str));
+                                        }
+                                    }
+
+                                    // Add return type annotation with 'return' key
+                                    if let Some(return_type) = &proto.return_type {
+                                        let type_str = Rc::new(ObjectType::String(
+                                            return_type.name().to_string(),
+                                        ));
+                                        annotations.push(("return".to_string(), type_str));
+                                    }
+
+                                    let annotations_dict = Rc::new(ObjectType::Dict(annotations));
+                                    self.push(annotations_dict);
                                 }
                                 _ => return InterpretResult::RuntimeError,
                             }

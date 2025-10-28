@@ -64,7 +64,6 @@ struct TokenInfo {
 #[derive(Debug, Clone)]
 struct Parameter {
     name: String,
-    #[allow(dead_code)]
     type_annotation: Option<Type>,
 }
 
@@ -422,7 +421,7 @@ impl<'a> Compiler<'a> {
         }
 
         // Check for return type annotation: -> type
-        let _return_type = if matches!(self.lexer.clone().next(), Some(Ok(Token::Arrow))) {
+        let return_type = if matches!(self.lexer.clone().next(), Some(Ok(Token::Arrow))) {
             self.lexer.next(); // consume '->'
             self.parse_type_annotation()
         } else {
@@ -469,12 +468,22 @@ impl<'a> Compiler<'a> {
             return;
         }
 
+        // Extract parameter names and types for the prototype
+        let parameter_names: Vec<String> = parameters.iter().map(|p| p.name.clone()).collect();
+        let parameter_types: Vec<Option<Type>> = parameters
+            .iter()
+            .map(|p| p.type_annotation.clone())
+            .collect();
+
         let prototype_value = Rc::new(ObjectType::FunctionPrototype(Rc::new(
-            FunctionPrototype::new(
+            FunctionPrototype::new_with_types(
                 name.clone(),
                 parameters.len(),
                 function_chunk,
                 captured_upvalues,
+                parameter_names,
+                parameter_types,
+                return_type,
             ),
         )));
         let prototype_const_idx = self.add_constant(prototype_value);
@@ -624,7 +633,7 @@ impl<'a> Compiler<'a> {
                 }
 
                 // Check for return type annotation: -> type
-                let _return_type = if matches!(self.lexer.clone().next(), Some(Ok(Token::Arrow))) {
+                let return_type = if matches!(self.lexer.clone().next(), Some(Ok(Token::Arrow))) {
                     self.lexer.next(); // consume '->'
                     self.parse_type_annotation()
                 } else {
@@ -671,12 +680,23 @@ impl<'a> Compiler<'a> {
                     return;
                 }
 
+                // Extract parameter names and types for the prototype
+                let parameter_names: Vec<String> =
+                    parameters.iter().map(|p| p.name.clone()).collect();
+                let parameter_types: Vec<Option<Type>> = parameters
+                    .iter()
+                    .map(|p| p.type_annotation.clone())
+                    .collect();
+
                 let prototype_value = Rc::new(ObjectType::FunctionPrototype(Rc::new(
-                    FunctionPrototype::new(
+                    FunctionPrototype::new_with_types(
                         method_name.clone(),
                         parameters.len(),
                         function_chunk,
                         captured_upvalues,
+                        parameter_names,
+                        parameter_types,
+                        return_type,
                     ),
                 )));
                 let prototype_const_idx = self.add_constant(prototype_value);
