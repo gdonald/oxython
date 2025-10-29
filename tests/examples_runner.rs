@@ -268,3 +268,12 @@ fn test_introspection_annotations() {
     let output = run_example("examples/introspection/annotations.py");
     assert_eq!(output, "add.__annotations__ = {'x': int, 'y': int, 'return': int}\ngreet.__annotations__ = {'name': str, 'return': str}\nprocess.__annotations__ = {'data': str, 'count': int, 'flag': bool}\nno_annotations.__annotations__ = {}\n");
 }
+
+#[test]
+fn test_introspection_code_object() {
+    let output = run_example("examples/introspection/code_object.py");
+    assert_eq!(
+        output,
+        "greet.__code__ = <code object>\ncalculate.__code__ = <code object>\n"
+    );
+}

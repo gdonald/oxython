@@ -904,6 +904,12 @@ impl VM {
                                     let annotations_dict = Rc::new(ObjectType::Dict(annotations));
                                     self.push(annotations_dict);
                                 }
+                                "__code__" => {
+                                    // Return a reference to the function's bytecode chunk
+                                    let code_obj =
+                                        Rc::new(ObjectType::CodeObject(func.chunk.clone()));
+                                    self.push(code_obj);
+                                }
                                 _ => return InterpretResult::RuntimeError,
                             }
                         }
@@ -949,6 +955,12 @@ impl VM {
 
                                     let annotations_dict = Rc::new(ObjectType::Dict(annotations));
                                     self.push(annotations_dict);
+                                }
+                                "__code__" => {
+                                    // Return a reference to the prototype's bytecode chunk
+                                    let code_obj =
+                                        Rc::new(ObjectType::CodeObject(proto.chunk.clone()));
+                                    self.push(code_obj);
                                 }
                                 _ => return InterpretResult::RuntimeError,
                             }

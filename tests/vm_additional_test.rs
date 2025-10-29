@@ -2215,3 +2215,33 @@ print(test_all.__annotations__)
     let mut vm = VM::new();
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
 }
+
+#[test]
+fn test_function_code_attribute() {
+    let source = r#"
+def greet(name):
+    return "Hello, " + name
+
+print(greet.__code__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_multiple_functions_code_objects() {
+    let source = r#"
+def add(a, b):
+    return a + b
+
+def multiply(x, y):
+    return x * y
+
+print(add.__code__)
+print(multiply.__code__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}

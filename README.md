@@ -133,11 +133,11 @@ cargo tarpaulin --out Html
             - [x] Create example demonstrating `__annotations__` access and type introspection.
             - [x] Write tests for `__annotations__` attribute.
         - [ ] Function Introspection Attributes (Phase 3: Code & Module)
-            - [ ] Implement `__code__` attribute (returns reference to the function's bytecode chunk or code object).
+            - [x] Implement `__code__` attribute (returns reference to the function's bytecode chunk or code object).
             - [ ] Add `module` field to `FunctionObject` and `FunctionPrototype` to track defining module.
             - [ ] Implement `__module__` attribute access (returns module name as string, default to `__main__`).
             - [ ] Create example demonstrating `__code__` and `__module__` access.
-            - [ ] Write tests for code and module attributes.
+            - [x] Write tests for `__code__` attribute.
         - [ ] Function Introspection Attributes (Phase 4: Namespaces & Closures)
             - [ ] Add `globals` field to `FunctionObject` to reference the global namespace where function was defined.
             - [ ] Implement `__globals__` attribute (returns reference to global namespace dict).

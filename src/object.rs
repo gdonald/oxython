@@ -309,6 +309,7 @@ pub enum ObjectType {
     Instance(Rc<RefCell<InstanceObject>>),
     BoundMethod(Object, Object),         // (instance, method function)
     SuperProxy(Object, Rc<ClassObject>), // (instance, parent class to lookup methods in)
+    CodeObject(Chunk),                   // Bytecode chunk representing compiled code
     Nil,
 }
 
@@ -334,6 +335,10 @@ impl PartialEq for ObjectType {
             }
             (ObjectType::SuperProxy(inst_a, class_a), ObjectType::SuperProxy(inst_b, class_b)) => {
                 inst_a == inst_b && class_a == class_b
+            }
+            (ObjectType::CodeObject(_), ObjectType::CodeObject(_)) => {
+                // Code objects are compared by reference, not by value
+                false
             }
             (ObjectType::Nil, ObjectType::Nil) => true,
             _ => false,
@@ -361,7 +366,8 @@ impl ObjectType {
             | ObjectType::FunctionPrototype(_)
             | ObjectType::NativeFunction(_, _)
             | ObjectType::BoundMethod(_, _)
-            | ObjectType::SuperProxy(_, _) => Type::Any,
+            | ObjectType::SuperProxy(_, _)
+            | ObjectType::CodeObject(_) => Type::Any,
         }
     }
 
@@ -382,6 +388,7 @@ impl ObjectType {
             ObjectType::Instance(instance) => instance.borrow().class.name.clone(),
             ObjectType::BoundMethod(_, _) => "method".to_string(),
             ObjectType::SuperProxy(_, _) => "super".to_string(),
+            ObjectType::CodeObject(_) => "code".to_string(),
             ObjectType::Nil => "NoneType".to_string(),
         }
     }
@@ -451,6 +458,7 @@ impl fmt::Display for ObjectType {
                 _ => write!(f, "<bound method>"),
             },
             ObjectType::SuperProxy(_, _) => write!(f, "<super>"),
+            ObjectType::CodeObject(_) => write!(f, "<code object>"),
             ObjectType::Nil => write!(f, "nil"),
         }
     }
