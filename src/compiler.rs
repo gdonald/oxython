@@ -15,6 +15,7 @@ pub struct Compiler<'a> {
     current_indent: usize,
     function_depth: usize,
     function_scopes: Vec<FunctionScope>,
+    module: String,
 }
 
 enum AssignmentKind {
@@ -185,6 +186,10 @@ impl FunctionScope {
 
 impl<'a> Compiler<'a> {
     pub fn compile(source: &'a str) -> Option<Chunk> {
+        Self::compile_with_module(source, "<script>")
+    }
+
+    pub fn compile_with_module(source: &'a str, module: &str) -> Option<Chunk> {
         let mut compiler = Compiler {
             lexer: Token::lexer(source),
             source,
@@ -195,6 +200,7 @@ impl<'a> Compiler<'a> {
             current_indent: 0,
             function_depth: 0,
             function_scopes: Vec::new(),
+            module: module.to_string(),
         };
 
         // Loop until we run out of tokens
@@ -475,15 +481,20 @@ impl<'a> Compiler<'a> {
             .map(|p| p.type_annotation.clone())
             .collect();
 
+        let type_info = crate::object::TypeInfo {
+            parameter_names,
+            parameter_types,
+            return_type,
+        };
+
         let prototype_value = Rc::new(ObjectType::FunctionPrototype(Rc::new(
             FunctionPrototype::new_with_types(
                 name.clone(),
                 parameters.len(),
                 function_chunk,
                 captured_upvalues,
-                parameter_names,
-                parameter_types,
-                return_type,
+                type_info,
+                self.module.clone(),
             ),
         )));
         let prototype_const_idx = self.add_constant(prototype_value);
@@ -688,15 +699,20 @@ impl<'a> Compiler<'a> {
                     .map(|p| p.type_annotation.clone())
                     .collect();
 
+                let type_info = crate::object::TypeInfo {
+                    parameter_names,
+                    parameter_types,
+                    return_type,
+                };
+
                 let prototype_value = Rc::new(ObjectType::FunctionPrototype(Rc::new(
                     FunctionPrototype::new_with_types(
                         method_name.clone(),
                         parameters.len(),
                         function_chunk,
                         captured_upvalues,
-                        parameter_names,
-                        parameter_types,
-                        return_type,
+                        type_info,
+                        self.module.clone(),
                     ),
                 )));
                 let prototype_const_idx = self.add_constant(prototype_value);

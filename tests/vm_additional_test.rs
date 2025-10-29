@@ -51,6 +51,7 @@ fn vm_calls_simple_function() {
         2,
         function_chunk,
         Vec::new(),
+        "<test>".to_string(),
     ));
 
     let mut chunk = Chunk::new();

@@ -79,6 +79,7 @@ impl VM {
             0,
             chunk,
             Vec::new(),
+            "<script>".to_string(),
         ));
         self.push(Rc::new(ObjectType::Function(script_function.clone())));
         self.frames.push(CallFrame {
@@ -267,14 +268,18 @@ impl VM {
                             captured.push(upvalue);
                         }
                     }
+                    let type_info = crate::object::TypeInfo {
+                        parameter_names: proto.parameter_names.clone(),
+                        parameter_types: proto.parameter_types.clone(),
+                        return_type: proto.return_type.clone(),
+                    };
                     let mut function = FunctionObject::new_with_types(
                         proto.name.clone(),
                         proto.arity,
                         proto.chunk.clone(),
                         captured,
-                        proto.parameter_names.clone(),
-                        proto.parameter_types.clone(),
-                        proto.return_type.clone(),
+                        type_info,
+                        proto.module.clone(),
                     );
                     function.doc = proto.doc.clone();
                     self.push(Rc::new(ObjectType::Function(Rc::new(function))));
@@ -869,6 +874,10 @@ impl VM {
                                     let name = Rc::new(ObjectType::String(func.name.clone()));
                                     self.push(name);
                                 }
+                                "__module__" => {
+                                    let module = Rc::new(ObjectType::String(func.module.clone()));
+                                    self.push(module);
+                                }
                                 "__doc__" => {
                                     let doc = match &func.doc {
                                         Some(docstring) => {
@@ -919,6 +928,10 @@ impl VM {
                                 "__name__" => {
                                     let name = Rc::new(ObjectType::String(proto.name.clone()));
                                     self.push(name);
+                                }
+                                "__module__" => {
+                                    let module = Rc::new(ObjectType::String(proto.module.clone()));
+                                    self.push(module);
                                 }
                                 "__doc__" => {
                                     let doc = match &proto.doc {

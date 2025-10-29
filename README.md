@@ -132,12 +132,12 @@ cargo tarpaulin --out Html
             - [x] Remove `#[allow(dead_code)]` from `parameter_types` and `return_type` fields once they're actively used.
             - [x] Create example demonstrating `__annotations__` access and type introspection.
             - [x] Write tests for `__annotations__` attribute.
-        - [ ] Function Introspection Attributes (Phase 3: Code & Module)
+        - [x] Function Introspection Attributes (Phase 3: Code & Module)
             - [x] Implement `__code__` attribute (returns reference to the function's bytecode chunk or code object).
-            - [ ] Add `module` field to `FunctionObject` and `FunctionPrototype` to track defining module.
-            - [ ] Implement `__module__` attribute access (returns module name as string, default to `__main__`).
-            - [ ] Create example demonstrating `__code__` and `__module__` access.
-            - [x] Write tests for `__code__` attribute.
+            - [x] Add `module` field to `FunctionObject` and `FunctionPrototype` to track defining module.
+            - [x] Implement `__module__` attribute access (returns module name as string, default to `<script>`).
+            - [x] Create example demonstrating `__code__` and `__module__` access.
+            - [x] Write tests for `__code__` and `__module__` attributes.
         - [ ] Function Introspection Attributes (Phase 4: Namespaces & Closures)
             - [ ] Add `globals` field to `FunctionObject` to reference the global namespace where function was defined.
             - [ ] Implement `__globals__` attribute (returns reference to global namespace dict).

@@ -4,6 +4,14 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
+/// Type information for function parameters and return types
+#[derive(Clone, Debug, Default)]
+pub struct TypeInfo {
+    pub parameter_names: Vec<String>,
+    pub parameter_types: Vec<Option<Type>>,
+    pub return_type: Option<Type>,
+}
+
 /// Represents basic Python types for optional type annotations.
 /// This enum will be used for type checking and runtime type information.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -97,10 +105,17 @@ pub struct FunctionObject {
     pub parameter_types: Vec<Option<Type>>,
     pub return_type: Option<Type>,
     pub doc: Option<String>,
+    pub module: String,
 }
 
 impl FunctionObject {
-    pub fn new(name: String, arity: usize, chunk: Chunk, upvalues: Vec<UpvalueRef>) -> Self {
+    pub fn new(
+        name: String,
+        arity: usize,
+        chunk: Chunk,
+        upvalues: Vec<UpvalueRef>,
+        module: String,
+    ) -> Self {
         FunctionObject {
             name,
             arity,
@@ -110,6 +125,7 @@ impl FunctionObject {
             parameter_types: Vec::new(),
             return_type: None,
             doc: None,
+            module,
         }
     }
 
@@ -118,19 +134,19 @@ impl FunctionObject {
         arity: usize,
         chunk: Chunk,
         upvalues: Vec<UpvalueRef>,
-        parameter_names: Vec<String>,
-        parameter_types: Vec<Option<Type>>,
-        return_type: Option<Type>,
+        type_info: TypeInfo,
+        module: String,
     ) -> Self {
         FunctionObject {
             name,
             arity,
             chunk,
             upvalues,
-            parameter_names,
-            parameter_types,
-            return_type,
+            parameter_names: type_info.parameter_names,
+            parameter_types: type_info.parameter_types,
+            return_type: type_info.return_type,
             doc: None,
+            module,
         }
     }
 }
@@ -152,10 +168,17 @@ pub struct FunctionPrototype {
     pub parameter_types: Vec<Option<Type>>,
     pub return_type: Option<Type>,
     pub doc: Option<String>,
+    pub module: String,
 }
 
 impl FunctionPrototype {
-    pub fn new(name: String, arity: usize, chunk: Chunk, upvalues: Vec<UpvalueDescriptor>) -> Self {
+    pub fn new(
+        name: String,
+        arity: usize,
+        chunk: Chunk,
+        upvalues: Vec<UpvalueDescriptor>,
+        module: String,
+    ) -> Self {
         FunctionPrototype {
             name,
             arity,
@@ -165,6 +188,7 @@ impl FunctionPrototype {
             parameter_types: Vec::new(),
             return_type: None,
             doc: None,
+            module,
         }
     }
 
@@ -173,19 +197,19 @@ impl FunctionPrototype {
         arity: usize,
         chunk: Chunk,
         upvalues: Vec<UpvalueDescriptor>,
-        parameter_names: Vec<String>,
-        parameter_types: Vec<Option<Type>>,
-        return_type: Option<Type>,
+        type_info: TypeInfo,
+        module: String,
     ) -> Self {
         FunctionPrototype {
             name,
             arity,
             chunk,
             upvalues,
-            parameter_names,
-            parameter_types,
-            return_type,
+            parameter_names: type_info.parameter_names,
+            parameter_types: type_info.parameter_types,
+            return_type: type_info.return_type,
             doc: None,
+            module,
         }
     }
 }

@@ -258,6 +258,12 @@ fn test_introspection_function_name() {
 }
 
 #[test]
+fn test_introspection_function_module() {
+    let output = run_example("examples/introspection/function_module.py");
+    assert_eq!(output, "<script>\n<script>\n");
+}
+
+#[test]
 fn test_introspection_basic_attributes() {
     let output = run_example("examples/introspection/basic_attributes.py");
     assert_eq!(output, "greet.__name__ = greet\ncalculate.__name__ = calculate\ngreet.__doc__ = nil\ncalculate.__doc__ = nil\n");
