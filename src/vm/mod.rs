@@ -66,12 +66,12 @@
 
 mod call_frame;
 mod collections;
-mod native;
-mod opcodes;
+pub mod native;
+pub mod opcodes;
 mod stack;
 mod string_repr;
 mod upvalues;
-mod values;
+pub mod values;
 
 use crate::bytecode::{Chunk, OpCode};
 use crate::object::{ClassObject, FunctionObject, InstanceObject, Object, ObjectType, UpvalueRef};

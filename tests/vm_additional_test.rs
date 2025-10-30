@@ -4,6 +4,20 @@ use oxython::object::{FunctionObject, ObjectType};
 use oxython::vm::{InterpretResult, VM};
 use std::rc::Rc;
 
+// Import Stack to test Default trait
+mod stack_default_test {
+    use oxython::vm::VM;
+
+    #[test]
+    fn test_vm_default_uses_stack_default() {
+        // This test ensures Stack::default() is called via VM::default()
+        // The VM uses Stack internally, so creating a VM via default() will
+        // exercise Stack::default()
+        let _vm = VM::default();
+        // If we get here without panicking, Stack::default() worked
+    }
+}
+
 fn push_constant(chunk: &mut Chunk, value: ObjectType) -> usize {
     chunk.constants.push(Rc::new(value));
     chunk.constants.len() - 1
