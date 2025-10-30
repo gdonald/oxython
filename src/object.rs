@@ -106,6 +106,8 @@ pub struct FunctionObject {
     pub return_type: Option<Type>,
     pub doc: Option<String>,
     pub module: String,
+    pub qualname: String, // Qualified name (e.g., "outer.inner" for nested functions)
+    pub globals: HashMap<String, Object>, // Reference to global namespace at function definition time
 }
 
 impl FunctionObject {
@@ -117,6 +119,7 @@ impl FunctionObject {
         module: String,
     ) -> Self {
         FunctionObject {
+            qualname: name.clone(),
             name,
             arity,
             chunk,
@@ -126,6 +129,7 @@ impl FunctionObject {
             return_type: None,
             doc: None,
             module,
+            globals: HashMap::new(),
         }
     }
 
@@ -138,6 +142,7 @@ impl FunctionObject {
         module: String,
     ) -> Self {
         FunctionObject {
+            qualname: name.clone(),
             name,
             arity,
             chunk,
@@ -147,6 +152,7 @@ impl FunctionObject {
             return_type: type_info.return_type,
             doc: None,
             module,
+            globals: HashMap::new(),
         }
     }
 }
@@ -169,6 +175,7 @@ pub struct FunctionPrototype {
     pub return_type: Option<Type>,
     pub doc: Option<String>,
     pub module: String,
+    pub qualname: String, // Qualified name (e.g., "outer.inner" for nested functions)
 }
 
 impl FunctionPrototype {
@@ -180,6 +187,7 @@ impl FunctionPrototype {
         module: String,
     ) -> Self {
         FunctionPrototype {
+            qualname: name.clone(),
             name,
             arity,
             chunk,
@@ -201,6 +209,7 @@ impl FunctionPrototype {
         module: String,
     ) -> Self {
         FunctionPrototype {
+            qualname: name.clone(),
             name,
             arity,
             chunk,

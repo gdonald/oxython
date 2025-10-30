@@ -2246,3 +2246,77 @@ print(multiply.__code__)
     let mut vm = VM::new();
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
 }
+
+#[test]
+fn test_function_qualname_simple() {
+    let source = r#"
+def simple():
+    return 1
+
+print(simple.__qualname__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_qualname_nested() {
+    let source = r#"
+def outer():
+    def inner():
+        return 1
+    print(inner.__qualname__)
+    return inner
+
+outer()
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_globals_attribute() {
+    let source = r#"
+global_var = 42
+
+def my_func():
+    return 1
+
+print(my_func.__globals__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_closure_nil_for_non_closure() {
+    let source = r#"
+def simple():
+    return 1
+
+print(simple.__closure__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_closure_captures_variables() {
+    let source = r#"
+def outer(x):
+    y = 10
+    def inner(z):
+        return x + y + z
+    print(inner.__closure__)
+    return inner
+
+outer(3)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}

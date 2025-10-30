@@ -198,6 +198,10 @@ impl super::Compiler<'_> {
         let outer_loop_stack = std::mem::take(&mut self.loop_stack);
         let parent_indent = self.current_indent;
 
+        // Build qualified name by joining function names with '.'
+        self.function_name_stack.push(name.clone());
+        let qualname = self.function_name_stack.join(".");
+
         self.function_scopes
             .push(FunctionScope::new_with_params(parameters.clone()));
         self.function_depth += 1;
@@ -205,6 +209,7 @@ impl super::Compiler<'_> {
         let body_had_statement = self.parse_suite(parent_indent, colon_end);
 
         self.function_depth -= 1;
+        self.function_name_stack.pop();
         let captured_upvalues = self
             .function_scopes
             .pop()
@@ -240,16 +245,16 @@ impl super::Compiler<'_> {
             return_type,
         };
 
-        let prototype_value = Rc::new(ObjectType::FunctionPrototype(Rc::new(
-            FunctionPrototype::new_with_types(
-                name.clone(),
-                parameters.len(),
-                function_chunk,
-                captured_upvalues,
-                type_info,
-                self.module.clone(),
-            ),
-        )));
+        let mut prototype = FunctionPrototype::new_with_types(
+            name.clone(),
+            parameters.len(),
+            function_chunk,
+            captured_upvalues,
+            type_info,
+            self.module.clone(),
+        );
+        prototype.qualname = qualname;
+        let prototype_value = Rc::new(ObjectType::FunctionPrototype(Rc::new(prototype)));
         let prototype_const_idx = self.add_constant(prototype_value);
         self.chunk.code.push(OpCode::OpMakeFunction as u8);
         self.chunk.code.push(prototype_const_idx as u8);
@@ -414,6 +419,10 @@ impl super::Compiler<'_> {
                 let outer_chunk = std::mem::take(&mut self.chunk);
                 let outer_loop_stack = std::mem::take(&mut self.loop_stack);
 
+                // Build qualified name for method: ClassName.method_name
+                self.function_name_stack.push(method_name.clone());
+                let qualname = format!("{}.{}", class_name, method_name);
+
                 self.function_scopes
                     .push(FunctionScope::new_with_params(parameters.clone()));
                 self.function_depth += 1;
@@ -422,6 +431,7 @@ impl super::Compiler<'_> {
                 let body_had_statement = self.parse_suite(class_body_indent, method_colon_end);
 
                 self.function_depth -= 1;
+                self.function_name_stack.pop();
                 let captured_upvalues = self
                     .function_scopes
                     .pop()
@@ -458,16 +468,16 @@ impl super::Compiler<'_> {
                     return_type,
                 };
 
-                let prototype_value = Rc::new(ObjectType::FunctionPrototype(Rc::new(
-                    FunctionPrototype::new_with_types(
-                        method_name.clone(),
-                        parameters.len(),
-                        function_chunk,
-                        captured_upvalues,
-                        type_info,
-                        self.module.clone(),
-                    ),
-                )));
+                let mut prototype = FunctionPrototype::new_with_types(
+                    method_name.clone(),
+                    parameters.len(),
+                    function_chunk,
+                    captured_upvalues,
+                    type_info,
+                    self.module.clone(),
+                );
+                prototype.qualname = qualname;
+                let prototype_value = Rc::new(ObjectType::FunctionPrototype(Rc::new(prototype)));
                 let prototype_const_idx = self.add_constant(prototype_value);
                 self.chunk.code.push(OpCode::OpMakeFunction as u8);
                 self.chunk.code.push(prototype_const_idx as u8);

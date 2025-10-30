@@ -27,6 +27,7 @@ pub struct Compiler<'a> {
     function_depth: usize,
     function_scopes: Vec<FunctionScope>,
     module: String,
+    function_name_stack: Vec<String>, // Stack of function names for building qualified names
 }
 
 impl<'a> Compiler<'a> {
@@ -46,6 +47,7 @@ impl<'a> Compiler<'a> {
             function_depth: 0,
             function_scopes: Vec::new(),
             module: module.to_string(),
+            function_name_stack: Vec::new(),
         };
 
         // Loop until we run out of tokens

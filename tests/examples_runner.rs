@@ -283,3 +283,11 @@ fn test_introspection_code_object() {
         "greet.__code__ = <code object>\ncalculate.__code__ = <code object>\n"
     );
 }
+#[test]
+fn test_introspection_closure_namespace() {
+    let output = run_example("examples/introspection/closure_namespace.py");
+    assert_eq!(
+        output,
+        "simple_func\nsimple_func\nnil\ninner\nouter.inner\n(3, 10)\n18\n"
+    );
+}

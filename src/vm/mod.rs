@@ -265,6 +265,9 @@ impl VM {
                         proto.module.clone(),
                     );
                     function.doc = proto.doc.clone();
+                    function.qualname = proto.qualname.clone();
+                    // Capture a snapshot of the global namespace at function definition time
+                    function.globals = self.globals.clone();
                     self.push(Rc::new(ObjectType::Function(Rc::new(function))));
                 }
                 OpCode::OpGetLocal => {
@@ -709,6 +712,45 @@ impl VM {
                                         Rc::new(ObjectType::CodeObject(func.chunk.clone()));
                                     self.push(code_obj);
                                 }
+                                "__qualname__" => {
+                                    let qualname =
+                                        Rc::new(ObjectType::String(func.qualname.clone()));
+                                    self.push(qualname);
+                                }
+                                "__globals__" => {
+                                    // Convert HashMap to Dict format (Vec<(String, Object)>)
+                                    let globals_vec: Vec<(String, Object)> = func
+                                        .globals
+                                        .iter()
+                                        .map(|(k, v)| (k.clone(), v.clone()))
+                                        .collect();
+                                    let globals_dict = Rc::new(ObjectType::Dict(globals_vec));
+                                    self.push(globals_dict);
+                                }
+                                "__closure__" => {
+                                    // Return a tuple of cell objects (upvalues), or None if no closure
+                                    if func.upvalues.is_empty() {
+                                        self.push(Rc::new(ObjectType::Nil));
+                                    } else {
+                                        // Create a tuple containing the closed-over values
+                                        let cell_values: Vec<Object> = func
+                                            .upvalues
+                                            .iter()
+                                            .map(|upvalue_ref| {
+                                                let upvalue = upvalue_ref.borrow();
+                                                if upvalue.is_closed {
+                                                    // Use the closed value
+                                                    upvalue.closed.clone()
+                                                } else {
+                                                    // Read from stack at location
+                                                    self.stack.get(upvalue.location).clone()
+                                                }
+                                            })
+                                            .collect();
+                                        let closure_tuple = Rc::new(ObjectType::Tuple(cell_values));
+                                        self.push(closure_tuple);
+                                    }
+                                }
                                 _ => return InterpretResult::RuntimeError,
                             }
                         }
@@ -764,6 +806,21 @@ impl VM {
                                     let code_obj =
                                         Rc::new(ObjectType::CodeObject(proto.chunk.clone()));
                                     self.push(code_obj);
+                                }
+                                "__qualname__" => {
+                                    let qualname =
+                                        Rc::new(ObjectType::String(proto.qualname.clone()));
+                                    self.push(qualname);
+                                }
+                                "__globals__" => {
+                                    // Prototypes don't have globals captured yet - return empty dict
+                                    let empty_dict = Rc::new(ObjectType::Dict(Vec::new()));
+                                    self.push(empty_dict);
+                                }
+                                "__closure__" => {
+                                    // Prototypes are templates, not runtime closures
+                                    // Return None since closures are only created at runtime
+                                    self.push(Rc::new(ObjectType::Nil));
                                 }
                                 _ => return InterpretResult::RuntimeError,
                             }

@@ -138,13 +138,13 @@ cargo tarpaulin --out Html
             - [x] Implement `__module__` attribute access (returns module name as string, default to `<script>`).
             - [x] Create example demonstrating `__code__` and `__module__` access.
             - [x] Write tests for `__code__` and `__module__` attributes.
-        - [ ] Function Introspection Attributes (Phase 4: Namespaces & Closures)
-            - [ ] Add `globals` field to `FunctionObject` to reference the global namespace where function was defined.
-            - [ ] Implement `__globals__` attribute (returns reference to global namespace dict).
-            - [ ] Implement `__closure__` attribute (returns tuple of cell objects from upvalues, or None).
-            - [ ] Implement `__qualname__` attribute for qualified names (handles nested functions).
-            - [ ] Create example demonstrating namespace and closure introspection.
-            - [ ] Write tests for `__globals__`, `__closure__`, and `__qualname__`.
+        - [x] Function Introspection Attributes (Phase 4: Namespaces & Closures)
+            - [x] Add `globals` field to `FunctionObject` to reference the global namespace where function was defined.
+            - [x] Implement `__globals__` attribute (returns reference to global namespace dict).
+            - [x] Implement `__closure__` attribute (returns tuple of cell objects from upvalues, or None).
+            - [x] Implement `__qualname__` attribute for qualified names (handles nested functions).
+            - [x] Create example demonstrating namespace and closure introspection.
+            - [x] Write tests for `__globals__`, `__closure__`, and `__qualname__`.
         - [ ] Function Introspection Attributes (Phase 5: Default Parameters - Future)
             - [ ] Note: Depends on "Default Parameters" implementation under "Advanced Function Features".
             - [ ] Implement `__defaults__` attribute (tuple of default values for positional parameters).
