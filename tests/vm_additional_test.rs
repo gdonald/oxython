@@ -2334,3 +2334,55 @@ outer(3)
     let mut vm = VM::new();
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
 }
+
+#[test]
+fn test_closure_with_multiple_upvalues() {
+    // Tests capturing multiple upvalues and exercising capture_upvalue
+    let source = r#"
+def outer(a, b, c):
+    def inner():
+        return a + b + c
+    return inner()
+
+print(outer(1, 2, 3))
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_closure_capturing_same_upvalue_twice() {
+    // Tests reusing existing upvalues in capture_upvalue
+    let source = r#"
+def outer(x):
+    def inner1():
+        return x
+    def inner2():
+        return x
+    return inner1() + inner2()
+
+print(outer(5))
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_closure_closed_over_locals() {
+    // Tests close_upvalues when function returns
+    let source = r#"
+def make_counter():
+    count = 0
+    def increment():
+        return count
+    return increment
+
+counter = make_counter()
+print(counter())
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}

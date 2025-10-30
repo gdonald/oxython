@@ -65,7 +65,7 @@
 //! - **I/O**: `OpPrint`, `OpPrintln`, `OpPrintSpaced`
 
 mod call_frame;
-mod collections;
+pub mod collections;
 pub mod native;
 pub mod opcodes;
 mod stack;
