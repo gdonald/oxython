@@ -145,10 +145,10 @@ cargo tarpaulin --out Html
             - [x] Implement `__qualname__` attribute for qualified names (handles nested functions).
             - [x] Create example demonstrating namespace and closure introspection.
             - [x] Write tests for `__globals__`, `__closure__`, and `__qualname__`.
-        - [ ] Function Introspection Attributes (Phase 5: Default Parameters - Future)
-            - [ ] Note: Depends on "Default Parameters" implementation under "Advanced Function Features".
+        - [ ] Function Introspection Attributes (Phase 5: Default Parameters)
+            - [x] Note: Default Parameters are now implemented (see "Advanced Function Features").
             - [ ] Implement `__defaults__` attribute (tuple of default values for positional parameters).
-            - [ ] Implement `__kwdefaults__` attribute (dict of default values for keyword-only parameters).
+            - [ ] Implement `__kwdefaults__` attribute (dict of default values for keyword-only parameters - Future).
             - [ ] Create example demonstrating default parameter introspection.
             - [ ] Write tests for default parameter attributes.
         - [ ] Store variable type annotations in symbol table (compiler-time only, no runtime enforcement).
@@ -178,7 +178,7 @@ cargo tarpaulin --out Html
     - [ ] Package Support (Optional): Implement package semantics with `__init__.py` files and hierarchical module namespaces (e.g., `package.submodule`).
 
 - [ ] Advanced Function Features (Future Enhancements)
-    - [ ] Default Parameters: Support optional parameters with default values (e.g., `def func(a, b=10):`).
+    - [x] Default Parameters: Support optional parameters with default values (e.g., `def func(a, b=10):`).
     - [ ] Variable-Length Arguments: Implement `*args` to accept variable number of positional arguments.
     - [ ] Keyword Arguments: Support `**kwargs` and named argument passing in function calls.
     - [ ] Lambda Expressions: Add support for anonymous functions with `lambda` syntax.

@@ -255,6 +255,7 @@ impl VM {
                         parameter_names: proto.parameter_names.clone(),
                         parameter_types: proto.parameter_types.clone(),
                         return_type: proto.return_type.clone(),
+                        default_values: proto.default_values.clone(),
                     };
                     let mut function = FunctionObject::new_with_types(
                         proto.name.clone(),
@@ -1060,11 +1061,27 @@ impl VM {
         instance_slot: Option<usize>,
         class_context: Option<Rc<ClassObject>>,
     ) -> bool {
-        if function.arity != arg_count {
+        // Validate argument count with default parameters support
+        // arg_count must be between required_args and arity (inclusive)
+        if arg_count < function.required_args || arg_count > function.arity {
             return false;
         }
+
         if self.frames.len() >= FRAMES_MAX {
             return false;
+        }
+
+        // Fill in missing arguments with default values
+        if arg_count < function.arity {
+            // Push default values for missing parameters
+            for i in arg_count..function.arity {
+                if let Some(Some(default_value)) = function.default_values.get(i) {
+                    self.push(default_value.clone());
+                } else {
+                    // This should not happen if required_args is calculated correctly
+                    return false;
+                }
+            }
         }
 
         self.frames.push(CallFrame::new(

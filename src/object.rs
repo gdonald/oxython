@@ -10,6 +10,7 @@ pub struct TypeInfo {
     pub parameter_names: Vec<String>,
     pub parameter_types: Vec<Option<Type>>,
     pub return_type: Option<Type>,
+    pub default_values: Vec<Option<Object>>,
 }
 
 /// Represents basic Python types for optional type annotations.
@@ -108,6 +109,8 @@ pub struct FunctionObject {
     pub module: String,
     pub qualname: String, // Qualified name (e.g., "outer.inner" for nested functions)
     pub globals: HashMap<String, Object>, // Reference to global namespace at function definition time
+    pub default_values: Vec<Option<Object>>, // Default values for parameters
+    pub required_args: usize,             // Number of required (non-default) parameters
 }
 
 impl FunctionObject {
@@ -130,6 +133,8 @@ impl FunctionObject {
             doc: None,
             module,
             globals: HashMap::new(),
+            default_values: Vec::new(),
+            required_args: arity,
         }
     }
 
@@ -141,6 +146,13 @@ impl FunctionObject {
         type_info: TypeInfo,
         module: String,
     ) -> Self {
+        // Calculate required_args: count parameters without defaults
+        let required_args = type_info
+            .default_values
+            .iter()
+            .take_while(|opt| opt.is_none())
+            .count();
+
         FunctionObject {
             qualname: name.clone(),
             name,
@@ -153,6 +165,8 @@ impl FunctionObject {
             doc: None,
             module,
             globals: HashMap::new(),
+            default_values: type_info.default_values,
+            required_args,
         }
     }
 }
@@ -176,6 +190,8 @@ pub struct FunctionPrototype {
     pub doc: Option<String>,
     pub module: String,
     pub qualname: String, // Qualified name (e.g., "outer.inner" for nested functions)
+    pub default_values: Vec<Option<Object>>, // Default values for parameters
+    pub required_args: usize, // Number of required (non-default) parameters
 }
 
 impl FunctionPrototype {
@@ -197,6 +213,8 @@ impl FunctionPrototype {
             return_type: None,
             doc: None,
             module,
+            default_values: Vec::new(),
+            required_args: arity,
         }
     }
 
@@ -208,6 +226,13 @@ impl FunctionPrototype {
         type_info: TypeInfo,
         module: String,
     ) -> Self {
+        // Calculate required_args: count parameters without defaults
+        let required_args = type_info
+            .default_values
+            .iter()
+            .take_while(|opt| opt.is_none())
+            .count();
+
         FunctionPrototype {
             qualname: name.clone(),
             name,
@@ -219,6 +244,8 @@ impl FunctionPrototype {
             return_type: type_info.return_type,
             doc: None,
             module,
+            default_values: type_info.default_values,
+            required_args,
         }
     }
 }

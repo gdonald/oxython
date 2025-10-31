@@ -156,6 +156,12 @@ fn run_nonlocal_counter() {
     assert_eq!(output, "1\n2\n3\n3\n0\n1\n");
 }
 
+#[test]
+fn run_default_parameters() {
+    let output = run_example("examples/functions/default_parameters.py");
+    assert_eq!(output, "Hi Alice!!!\nHey Bob!\nHello Charlie!\nadmin:user\njohn:moderator\n9\n27\n32\nUSD 100\nEUR 50\n");
+}
+
 // ============================================================================
 // OBJECT-ORIENTED PROGRAMMING
 // ============================================================================

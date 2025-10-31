@@ -154,7 +154,32 @@ impl super::Compiler<'_> {
                     None
                 };
 
-                parameters.push(Parameter::new(param_name, type_annotation));
+                // Check for default value: param = value
+                let default_value = if matches!(self.lexer.clone().next(), Some(Ok(Token::Assign)))
+                {
+                    self.lexer.next(); // consume '='
+                    self.parse_constant_default_value()
+                } else {
+                    None
+                };
+
+                // Validate: non-default parameters cannot follow default parameters
+                let has_default_params = parameters.iter().any(|p| p.default_value.is_some());
+                if has_default_params && default_value.is_none() {
+                    // Error: non-default parameter after default parameter
+                    self.had_error = true;
+                    return;
+                }
+
+                if let Some(default) = default_value {
+                    parameters.push(Parameter::new_with_default(
+                        param_name,
+                        type_annotation,
+                        default,
+                    ));
+                } else {
+                    parameters.push(Parameter::new(param_name, type_annotation));
+                }
 
                 match self.lexer.clone().next() {
                     Some(Ok(Token::Comma)) => {
@@ -232,17 +257,20 @@ impl super::Compiler<'_> {
             return;
         }
 
-        // Extract parameter names and types for the prototype
+        // Extract parameter names, types, and default values for the prototype
         let parameter_names: Vec<String> = parameters.iter().map(|p| p.name.clone()).collect();
         let parameter_types: Vec<Option<Type>> = parameters
             .iter()
             .map(|p| p.type_annotation.clone())
             .collect();
+        let default_values: Vec<Option<crate::object::Object>> =
+            parameters.iter().map(|p| p.default_value.clone()).collect();
 
         let type_info = crate::object::TypeInfo {
             parameter_names,
             parameter_types,
             return_type,
+            default_values,
         };
 
         let mut prototype = FunctionPrototype::new_with_types(
@@ -376,7 +404,33 @@ impl super::Compiler<'_> {
                                 None
                             };
 
-                        parameters.push(Parameter::new(param_name, type_annotation));
+                        // Check for default value: param = value
+                        let default_value =
+                            if matches!(self.lexer.clone().next(), Some(Ok(Token::Assign))) {
+                                self.lexer.next(); // consume '='
+                                self.parse_constant_default_value()
+                            } else {
+                                None
+                            };
+
+                        // Validate: non-default parameters cannot follow default parameters
+                        let has_default_params =
+                            parameters.iter().any(|p| p.default_value.is_some());
+                        if has_default_params && default_value.is_none() {
+                            // Error: non-default parameter after default parameter
+                            self.had_error = true;
+                            return;
+                        }
+
+                        if let Some(default) = default_value {
+                            parameters.push(Parameter::new_with_default(
+                                param_name,
+                                type_annotation,
+                                default,
+                            ));
+                        } else {
+                            parameters.push(Parameter::new(param_name, type_annotation));
+                        }
 
                         match self.lexer.clone().next() {
                             Some(Ok(Token::Comma)) => {
@@ -454,18 +508,21 @@ impl super::Compiler<'_> {
                     return;
                 }
 
-                // Extract parameter names and types for the prototype
+                // Extract parameter names, types, and default values for the prototype
                 let parameter_names: Vec<String> =
                     parameters.iter().map(|p| p.name.clone()).collect();
                 let parameter_types: Vec<Option<Type>> = parameters
                     .iter()
                     .map(|p| p.type_annotation.clone())
                     .collect();
+                let default_values: Vec<Option<crate::object::Object>> =
+                    parameters.iter().map(|p| p.default_value.clone()).collect();
 
                 let type_info = crate::object::TypeInfo {
                     parameter_names,
                     parameter_types,
                     return_type,
+                    default_values,
                 };
 
                 let mut prototype = FunctionPrototype::new_with_types(
@@ -1117,6 +1174,24 @@ impl super::Compiler<'_> {
             self.chunk.code.push(OpCode::OpPop as u8);
         } else if !produced {
             self.had_error = true;
+        }
+    }
+
+    /// Parses a constant default value for a function parameter.
+    /// Only supports literal values: integers, floats, strings, True, False, None.
+    /// Returns None if the token is not a valid constant.
+    fn parse_constant_default_value(&mut self) -> Option<crate::object::Object> {
+        match self.lexer.next() {
+            Some(Ok(Token::Integer(val))) => Some(Rc::new(ObjectType::Integer(val))),
+            Some(Ok(Token::Float(val))) => Some(Rc::new(ObjectType::Float(val))),
+            Some(Ok(Token::String(val))) => Some(Rc::new(ObjectType::String(val))),
+            Some(Ok(Token::True)) => Some(Rc::new(ObjectType::Boolean(true))),
+            Some(Ok(Token::False)) => Some(Rc::new(ObjectType::Boolean(false))),
+            Some(Ok(Token::Identifier(ref s))) if s == "None" => Some(Rc::new(ObjectType::Nil)),
+            _ => {
+                self.had_error = true;
+                None
+            }
         }
     }
 }

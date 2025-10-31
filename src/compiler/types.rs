@@ -75,13 +75,15 @@ pub(super) struct TokenInfo {
     pub(super) start: usize,
 }
 
-/// Represents a function parameter with optional type annotation.
+/// Represents a function parameter with optional type annotation and default value.
 #[derive(Debug, Clone)]
 pub(super) struct Parameter {
     /// Parameter name
     pub(super) name: String,
     /// Optional type annotation
     pub(super) type_annotation: Option<Type>,
+    /// Optional default value (as a compiled Object)
+    pub(super) default_value: Option<crate::object::Object>,
 }
 
 impl Parameter {
@@ -90,6 +92,20 @@ impl Parameter {
         Parameter {
             name,
             type_annotation,
+            default_value: None,
+        }
+    }
+
+    /// Creates a new parameter with a default value.
+    pub(super) fn new_with_default(
+        name: String,
+        type_annotation: Option<Type>,
+        default_value: crate::object::Object,
+    ) -> Self {
+        Parameter {
+            name,
+            type_annotation,
+            default_value: Some(default_value),
         }
     }
 }
