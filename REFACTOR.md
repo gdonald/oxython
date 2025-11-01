@@ -8,35 +8,35 @@
     - [x] Run `cargo fmt && cargo clippy`
     - [x] Run `cargo test`
 
-- [ ] Phase 2: Extract Complex Opcode Handlers
-    - [ ] 2a: Extract OpMakeFunction (~45 lines)
-        - [ ] Add `op_make_function()` to `opcodes/functions.rs`
-        - [ ] Update dispatcher to call new function
-        - [ ] Run `cargo test`
-    - [ ] 2b: Extract OpMakeClass (~39 lines)
-        - [ ] Add `op_make_class()` to `opcodes/classes.rs`
-        - [ ] Update dispatcher to call new function
-        - [ ] Run `cargo test`
-    - [ ] 2c: Extract OpGetAttr (~246 lines)
-        - [ ] Create `src/vm/opcodes/attributes.rs`
-        - [ ] Implement `op_get_attr()` with helper functions:
-            - [ ] `get_instance_attr()`
-            - [ ] `get_class_attr()`
-            - [ ] `get_super_proxy_attr()`
-            - [ ] `get_function_attr()`
-            - [ ] `get_function_prototype_attr()`
-        - [ ] Add to `opcodes/mod.rs`
-        - [ ] Update dispatcher to call new function
-        - [ ] Run `cargo test`
-    - [ ] 2d: Extract OpSetAttr (~16 lines)
-        - [ ] Add `op_set_attr()` to `opcodes/attributes.rs`
-        - [ ] Update dispatcher to call new function
-        - [ ] Run `cargo test`
-    - [ ] 2e: Extract OpInherit (~26 lines)
-        - [ ] Add `op_inherit()` to `opcodes/classes.rs`
-        - [ ] Update dispatcher to call new function
-        - [ ] Run `cargo test`
-    - [ ] Run `cargo fmt && cargo clippy`
+- [x] Phase 2: Extract Complex Opcode Handlers
+    - [x] 2a: Extract OpMakeFunction (~45 lines)
+        - [x] Add `op_make_function()` to `opcodes/functions.rs`
+        - [x] Update dispatcher to call new function
+        - [x] Run `cargo test`
+    - [x] 2b: Extract OpMakeClass (~39 lines)
+        - [x] Add `op_make_class()` to `opcodes/classes.rs`
+        - [x] Update dispatcher to call new function
+        - [x] Run `cargo test`
+    - [x] 2c: Extract OpGetAttr (~246 lines)
+        - [x] Create `src/vm/opcodes/attributes.rs`
+        - [x] Implement `op_get_attr()` with helper functions:
+            - [x] `get_instance_attr()`
+            - [x] `get_class_attr()`
+            - [x] `get_super_proxy_attr()`
+            - [x] `get_function_attr()`
+            - [x] `get_function_prototype_attr()`
+        - [x] Add to `opcodes/mod.rs`
+        - [x] Update dispatcher to call new function
+        - [x] Run `cargo test`
+    - [x] 2d: Extract OpSetAttr (~16 lines)
+        - [x] Add `op_set_attr()` to `opcodes/attributes.rs`
+        - [x] Update dispatcher to call new function
+        - [x] Run `cargo test`
+    - [x] 2e: Extract OpInherit (~26 lines)
+        - [x] Add `op_inherit()` to `opcodes/classes.rs`
+        - [x] Update dispatcher to call new function
+        - [x] Run `cargo test`
+    - [x] Run `cargo fmt && cargo clippy`
 
 - [ ] Phase 3: Extract Function Call Logic (~175 lines)
     - [ ] Create `src/vm/function_calls.rs`

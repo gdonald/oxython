@@ -4,6 +4,7 @@
 //! Each submodule handles a specific category of opcodes.
 
 pub mod arithmetic;
+pub mod attributes;
 pub mod builtins;
 pub mod classes;
 pub mod collections;
