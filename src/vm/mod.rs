@@ -194,30 +194,34 @@ impl VM {
                 OpCode::OpDefineGlobal => {
                     let name_idx = self.read_byte() as usize;
                     if let ObjectType::String(name) = &*self.current_chunk().constants[name_idx] {
-                        self.globals.insert(name.clone(), self.peek(0).clone());
+                        let value = self.peek(0).clone();
+                        opcodes::variables::op_define_global(
+                            name.clone(),
+                            value,
+                            &mut self.globals,
+                        );
                         self.pop();
                     }
                 }
                 OpCode::OpGetGlobal => {
                     let name_idx = self.read_byte() as usize;
                     if let ObjectType::String(name) = &*self.current_chunk().constants[name_idx] {
-                        if let Some(value) = self.globals.get(name) {
-                            self.push(value.clone());
-                        } else {
-                            // Runtime error: undefined variable
-                            return InterpretResult::RuntimeError;
+                        match opcodes::variables::op_get_global(name, &self.globals) {
+                            Ok(value) => self.push(value),
+                            Err(e) => return e,
                         }
                     }
                 }
                 OpCode::OpSetGlobal => {
                     let name_idx = self.read_byte() as usize;
-                    if let ObjectType::String(name) = &*self.current_chunk().constants[name_idx] {
-                        if self.globals.contains_key(name) {
-                            let value = self.peek(0).clone();
-                            self.globals.insert(name.clone(), value);
-                        } else {
-                            return InterpretResult::RuntimeError;
-                        }
+                    let name = match &*self.current_chunk().constants[name_idx] {
+                        ObjectType::String(name) => name.clone(),
+                        _ => return InterpretResult::RuntimeError,
+                    };
+                    let value = self.peek(0).clone();
+                    match opcodes::variables::op_set_global(&name, value, &mut self.globals) {
+                        Ok(()) => {}
+                        Err(e) => return e,
                     }
                 }
                 OpCode::OpCall => {
@@ -274,62 +278,42 @@ impl VM {
                 }
                 OpCode::OpGetLocal => {
                     let slot = self.read_byte() as usize;
-                    if let Some(frame) = self.frames.last() {
-                        let index = frame.slot + slot;
-                        let value = self.stack.get(index).clone();
-                        self.push(value);
-                    } else {
-                        return InterpretResult::RuntimeError;
+                    match opcodes::variables::op_get_local(slot, &self.stack, &self.frames) {
+                        Ok(value) => self.push(value),
+                        Err(e) => return e,
                     }
                 }
                 OpCode::OpSetLocal => {
                     let slot = self.read_byte() as usize;
-                    if let Some(frame) = self.frames.last() {
-                        let index = frame.slot + slot;
-                        let value = self.peek(0).clone();
-                        self.stack.set(index, value);
-                    } else {
-                        return InterpretResult::RuntimeError;
+                    let value = self.peek(0).clone();
+                    match opcodes::variables::op_set_local(
+                        slot,
+                        value,
+                        &mut self.stack,
+                        &self.frames,
+                    ) {
+                        Ok(()) => {}
+                        Err(e) => return e,
                     }
                 }
                 OpCode::OpGetUpvalue => {
                     let slot = self.read_byte() as usize;
-                    let upvalue_ref = if let Some(frame) = self.frames.last() {
-                        frame.function.upvalues.get(slot).cloned()
-                    } else {
-                        None
-                    };
-                    if let Some(upvalue_ref) = upvalue_ref {
-                        let value = {
-                            let upvalue = upvalue_ref.borrow();
-                            if upvalue.is_closed {
-                                upvalue.closed.clone()
-                            } else {
-                                self.stack.get(upvalue.location).clone()
-                            }
-                        };
-                        self.push(value);
-                    } else {
-                        return InterpretResult::RuntimeError;
+                    match opcodes::variables::op_get_upvalue(slot, &self.stack, &self.frames) {
+                        Ok(value) => self.push(value),
+                        Err(e) => return e,
                     }
                 }
                 OpCode::OpSetUpvalue => {
                     let slot = self.read_byte() as usize;
                     let value = self.peek(0).clone();
-                    let upvalue_ref = if let Some(frame) = self.frames.last() {
-                        frame.function.upvalues.get(slot).cloned()
-                    } else {
-                        None
-                    };
-                    if let Some(upvalue_ref) = upvalue_ref {
-                        let mut upvalue = upvalue_ref.borrow_mut();
-                        if upvalue.is_closed {
-                            upvalue.closed = value;
-                        } else {
-                            self.stack.set(upvalue.location, value);
-                        }
-                    } else {
-                        return InterpretResult::RuntimeError;
+                    match opcodes::variables::op_set_upvalue(
+                        slot,
+                        value,
+                        &mut self.stack,
+                        &self.frames,
+                    ) {
+                        Ok(()) => {}
+                        Err(e) => return e,
                     }
                 }
                 OpCode::OpPrintSpaced => {
@@ -463,69 +447,35 @@ impl VM {
                     let index = self.pop();
                     let collection = self.pop();
 
-                    match (&*collection, &*index) {
-                        (ObjectType::List(values), ObjectType::Integer(idx))
-                        | (ObjectType::Tuple(values), ObjectType::Integer(idx)) => {
-                            if *idx < 0 {
-                                return InterpretResult::RuntimeError;
-                            }
-                            let idx_usize = *idx as usize;
-                            if idx_usize >= values.len() {
-                                // Iteration finished; skip body.
-                                if let Some(frame) = self.frames.last_mut() {
-                                    frame.ip += offset;
-                                }
-                            } else {
-                                let element = values[idx_usize].clone();
-                                let next_index = (idx_usize + 1) as i64;
-                                self.push(collection.clone());
-                                self.push(Rc::new(ObjectType::Integer(next_index)));
-                                self.push(element);
-                            }
+                    match opcodes::control_flow::op_iter_next(
+                        offset,
+                        index,
+                        collection,
+                        &mut self.frames,
+                    ) {
+                        Ok(Some((coll, idx, elem))) => {
+                            self.push(coll);
+                            self.push(idx);
+                            self.push(elem);
                         }
-                        (ObjectType::String(text), ObjectType::Integer(idx)) => {
-                            if *idx < 0 {
-                                return InterpretResult::RuntimeError;
-                            }
-                            let chars: Vec<char> = text.chars().collect();
-                            let idx_usize = *idx as usize;
-                            if idx_usize >= chars.len() {
-                                if let Some(frame) = self.frames.last_mut() {
-                                    frame.ip += offset;
-                                }
-                            } else {
-                                let ch = chars[idx_usize];
-                                let next_index = (idx_usize + 1) as i64;
-                                self.push(collection.clone());
-                                self.push(Rc::new(ObjectType::Integer(next_index)));
-                                self.push(Rc::new(ObjectType::String(ch.to_string())));
-                            }
+                        Ok(None) => {
+                            // Iteration finished, frame IP already updated
                         }
-                        _ => {
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e,
                     }
                 }
                 OpCode::OpLoop => {
                     let offset = self.read_u16();
-                    if let Some(frame) = self.frames.last_mut() {
-                        frame.ip -= offset;
-                    }
+                    opcodes::control_flow::op_loop(offset, &mut self.frames);
                 }
                 OpCode::OpJumpIfFalse => {
                     let offset = self.read_u16();
                     let condition = self.peek(0).clone();
-                    if !values::is_truthy(&condition) {
-                        if let Some(frame) = self.frames.last_mut() {
-                            frame.ip += offset;
-                        }
-                    }
+                    opcodes::control_flow::op_jump_if_false(offset, &condition, &mut self.frames);
                 }
                 OpCode::OpJump => {
                     let offset = self.read_u16();
-                    if let Some(frame) = self.frames.last_mut() {
-                        frame.ip += offset;
-                    }
+                    opcodes::control_flow::op_jump(offset, &mut self.frames);
                 }
                 OpCode::OpSetIndex => {
                     let value = self.pop();
