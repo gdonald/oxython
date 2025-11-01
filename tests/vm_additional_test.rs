@@ -2386,3 +2386,68 @@ print(counter())
     let mut vm = VM::new();
     assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
 }
+
+#[test]
+fn test_function_defaults_no_defaults() {
+    let source = r#"
+def no_defaults(a, b):
+    return a + b
+
+print(no_defaults.__defaults__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_defaults_with_defaults() {
+    let source = r#"
+def with_defaults(a, b=10, c=20):
+    return a + b + c
+
+print(with_defaults.__defaults__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_defaults_all_defaults() {
+    let source = r#"
+def all_defaults(x=1, y=2, z=3):
+    return x + y + z
+
+print(all_defaults.__defaults__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_defaults_with_strings() {
+    let source = r#"
+def greet(name, greeting="Hello", punctuation="!"):
+    return greeting + " " + name + punctuation
+
+print(greet.__defaults__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}
+
+#[test]
+fn test_function_defaults_mixed_values() {
+    let source = r#"
+def mixed(a, b=42, c="test"):
+    return a
+
+print(mixed.__defaults__)
+"#;
+    let chunk = Compiler::compile(source).expect("Expected chunk");
+    let mut vm = VM::new();
+    assert_eq!(vm.interpret(chunk), InterpretResult::Ok);
+}

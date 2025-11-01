@@ -297,3 +297,12 @@ fn test_introspection_closure_namespace() {
         "simple_func\nsimple_func\nnil\ninner\nouter.inner\n(3, 10)\n18\n"
     );
 }
+
+#[test]
+fn test_introspection_default_parameters() {
+    let output = run_example("examples/introspection/default_parameters.py");
+    assert_eq!(
+        output,
+        "no_defaults\nnil\nwith_defaults\n(10, 20)\nall_defaults\n(1, 2, 3)\ngreet\n('Hello', '!')\n"
+    );
+}

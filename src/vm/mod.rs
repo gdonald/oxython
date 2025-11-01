@@ -752,6 +752,22 @@ impl VM {
                                         self.push(closure_tuple);
                                     }
                                 }
+                                "__defaults__" => {
+                                    // Return a tuple of default values for parameters, or None if no defaults
+                                    // Collect only the default values (not None placeholders)
+                                    let defaults: Vec<Object> = func
+                                        .default_values
+                                        .iter()
+                                        .filter_map(|opt| opt.clone())
+                                        .collect();
+
+                                    if defaults.is_empty() {
+                                        self.push(Rc::new(ObjectType::Nil));
+                                    } else {
+                                        let defaults_tuple = Rc::new(ObjectType::Tuple(defaults));
+                                        self.push(defaults_tuple);
+                                    }
+                                }
                                 _ => return InterpretResult::RuntimeError,
                             }
                         }
@@ -822,6 +838,22 @@ impl VM {
                                     // Prototypes are templates, not runtime closures
                                     // Return None since closures are only created at runtime
                                     self.push(Rc::new(ObjectType::Nil));
+                                }
+                                "__defaults__" => {
+                                    // Return a tuple of default values for parameters, or None if no defaults
+                                    // Collect only the default values (not None placeholders)
+                                    let defaults: Vec<Object> = proto
+                                        .default_values
+                                        .iter()
+                                        .filter_map(|opt| opt.clone())
+                                        .collect();
+
+                                    if defaults.is_empty() {
+                                        self.push(Rc::new(ObjectType::Nil));
+                                    } else {
+                                        let defaults_tuple = Rc::new(ObjectType::Tuple(defaults));
+                                        self.push(defaults_tuple);
+                                    }
                                 }
                                 _ => return InterpretResult::RuntimeError,
                             }
