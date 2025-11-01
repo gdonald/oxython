@@ -2,7 +2,7 @@ use crate::object::{ObjectType, Upvalue, UpvalueRef};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use super::stack::Stack;
+use super::stack_ops::Stack;
 
 /// Captures an upvalue for a given stack index.
 ///

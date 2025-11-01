@@ -3,7 +3,7 @@ use crate::object::{Object, ObjectType};
 use std::rc::Rc;
 
 use super::call_frame::CallFrame;
-use super::stack::Stack;
+use super::stack_ops::Stack;
 
 /// Get string representation of an object, checking for __str__ and __repr__ special methods.
 ///

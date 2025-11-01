@@ -64,11 +64,12 @@
 //! - **Stack Operations**: `OpPop`, `OpDup`, `OpSwap`, `OpConstant`
 //! - **I/O**: `OpPrint`, `OpPrintln`, `OpPrintSpaced`
 
+mod bytecode_reader;
 mod call_frame;
 pub mod collections;
 pub mod native;
 pub mod opcodes;
-mod stack;
+mod stack_ops;
 mod string_repr;
 mod upvalues;
 pub mod values;
@@ -76,7 +77,7 @@ pub mod values;
 use crate::bytecode::{Chunk, OpCode};
 use crate::object::{ClassObject, FunctionObject, InstanceObject, Object, ObjectType, UpvalueRef};
 use call_frame::{CallFrame, FRAMES_MAX};
-use stack::Stack;
+use stack_ops::Stack;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -333,34 +334,14 @@ impl VM {
                 }
                 OpCode::OpPrintSpaced => {
                     let value = self.pop();
-                    let string_repr = string_repr::get_string_representation(
-                        value.clone(),
-                        &mut self.stack,
-                        &mut self.frames,
-                    );
-                    if let Some(repr) = string_repr {
-                        print!("{} ", repr);
-                    } else {
-                        // Fallback to default Display implementation
-                        print!("{} ", value);
-                    }
+                    opcodes::io::op_print_spaced(value, &mut self.stack, &mut self.frames);
                 }
                 OpCode::OpPrint => {
                     let value = self.pop();
-                    let string_repr = string_repr::get_string_representation(
-                        value.clone(),
-                        &mut self.stack,
-                        &mut self.frames,
-                    );
-                    if let Some(repr) = string_repr {
-                        print!("{}", repr);
-                    } else {
-                        // Fallback to default Display implementation
-                        print!("{}", value);
-                    }
+                    opcodes::io::op_print(value, &mut self.stack, &mut self.frames);
                 }
                 OpCode::OpPrintln => {
-                    println!();
+                    opcodes::io::op_println();
                 }
                 OpCode::OpIndex => {
                     let index = self.pop();
@@ -909,43 +890,6 @@ impl VM {
         }
     }
 
-    fn push(&mut self, value: Object) {
-        self.stack.push(value);
-    }
-
-    fn pop(&mut self) -> Object {
-        self.stack.pop()
-    }
-
-    fn peek(&self, distance: usize) -> &Object {
-        self.stack.peek(distance)
-    }
-
-    pub fn last_popped_stack_elem(&self) -> Rc<ObjectType> {
-        self.stack.last_popped()
-    }
-
-    // Helper for testing to inspect the top of the stack without popping.
-    pub fn peek_stack(&self) -> Option<Rc<ObjectType>> {
-        self.stack.peek_top()
-    }
-
-    fn current_chunk(&self) -> &Chunk {
-        &self
-            .frames
-            .last()
-            .expect("expected active call frame")
-            .function
-            .chunk
-    }
-
-    fn read_byte(&mut self) -> u8 {
-        let frame = self.frames.last_mut().expect("expected active call frame");
-        let byte = frame.function.chunk.code[frame.ip];
-        frame.ip += 1;
-        byte
-    }
-
     fn call_value(&mut self, arg_count: usize) -> bool {
         if self.stack.top() < arg_count + 1 {
             return false;
@@ -1168,11 +1112,5 @@ impl VM {
             self.push(value);
             false
         }
-    }
-
-    fn read_u16(&mut self) -> usize {
-        let high = self.read_byte() as usize;
-        let low = self.read_byte() as usize;
-        (high << 8) | low
     }
 }

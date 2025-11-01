@@ -104,3 +104,85 @@ impl Default for Stack {
         Self::new()
     }
 }
+
+// VM stack operation methods
+use super::VM;
+
+impl VM {
+    /// Push a value onto the VM's operand stack.
+    #[inline]
+    pub(super) fn push(&mut self, value: Object) {
+        self.stack.push(value);
+    }
+
+    /// Pop a value from the VM's operand stack.
+    #[inline]
+    pub(super) fn pop(&mut self) -> Object {
+        self.stack.pop()
+    }
+
+    /// Peek at a value on the stack without removing it.
+    /// Distance 0 = top of stack, 1 = second from top, etc.
+    #[inline]
+    pub(super) fn peek(&self, distance: usize) -> &Object {
+        self.stack.peek(distance)
+    }
+
+    /// Get the last popped value from the stack.
+    /// This is used by the REPL to display expression results.
+    pub fn last_popped_stack_elem(&self) -> Object {
+        self.stack.last_popped()
+    }
+
+    /// Helper for testing to inspect the top of the stack without popping.
+    pub fn peek_stack(&self) -> Option<Object> {
+        self.stack.peek_top()
+    }
+}
+
+#[cfg(test)]
+mod vm_stack_tests {
+    use super::*;
+    use crate::object::ObjectType;
+    use std::rc::Rc;
+
+    #[test]
+    fn test_vm_push_pop() {
+        let mut vm = VM::new();
+        let value = Rc::new(ObjectType::Integer(42));
+
+        vm.push(value.clone());
+        assert_eq!(vm.peek_stack(), Some(value.clone()));
+
+        let popped = vm.pop();
+        assert_eq!(*popped, *value);
+        assert_eq!(vm.peek_stack(), None);
+    }
+
+    #[test]
+    fn test_vm_peek() {
+        let mut vm = VM::new();
+        let val1 = Rc::new(ObjectType::Integer(1));
+        let val2 = Rc::new(ObjectType::Integer(2));
+        let val3 = Rc::new(ObjectType::Integer(3));
+
+        vm.push(val1.clone());
+        vm.push(val2.clone());
+        vm.push(val3.clone());
+
+        assert_eq!(vm.peek(0), &val3);
+        assert_eq!(vm.peek(1), &val2);
+        assert_eq!(vm.peek(2), &val1);
+    }
+
+    #[test]
+    fn test_vm_last_popped() {
+        let mut vm = VM::new();
+        let value = Rc::new(ObjectType::Integer(42));
+
+        vm.push(value.clone());
+        vm.pop();
+
+        assert_eq!(*vm.last_popped_stack_elem(), *value);
+    }
+}
