@@ -45,6 +45,8 @@ def main():
     print(f"{'File':<60} {'Lines':>10}")
     print("-" * 70)
     for file_path, line_count in file_line_counts:
+        if line_count < 100:
+            continue
         print(f"{file_path:<60} {line_count:>10}")
 
     # Output summary
