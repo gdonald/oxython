@@ -186,6 +186,11 @@ impl super::super::Compiler<'_> {
                             // Variable is nonlocal, re-resolve to get upvalue target
                             target = self.resolve_variable(&name);
                         }
+                    } else if self.function_depth == 0 && matches!(target, VariableTarget::Global) {
+                        // Store type annotation for global variable at module scope
+                        if let Some(ty) = type_annotation {
+                            self.store_global_type_annotation(name.clone(), ty);
+                        }
                     }
 
                     if !self.parse_expression() {

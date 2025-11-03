@@ -12,8 +12,10 @@ mod statements;
 mod types;
 
 use crate::bytecode::{Chunk, OpCode};
+use crate::object::Type;
 use crate::token::Token;
 use logos::{Lexer, Logos};
+use std::collections::HashMap;
 use types::*;
 
 pub struct Compiler<'a> {
@@ -28,6 +30,7 @@ pub struct Compiler<'a> {
     function_scopes: Vec<FunctionScope>,
     module: String,
     function_name_stack: Vec<String>, // Stack of function names for building qualified names
+    global_type_annotations: HashMap<String, Type>, // Type annotations for global variables
 }
 
 impl<'a> Compiler<'a> {
@@ -48,6 +51,7 @@ impl<'a> Compiler<'a> {
             function_scopes: Vec::new(),
             module: module.to_string(),
             function_name_stack: Vec::new(),
+            global_type_annotations: HashMap::new(),
         };
 
         // Loop until we run out of tokens

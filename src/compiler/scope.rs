@@ -131,4 +131,16 @@ impl super::Compiler<'_> {
 
         Some(scope.declare_with_type(name, type_annotation))
     }
+
+    /// Stores a type annotation for a global variable.
+    /// This is only used at module scope (function_depth == 0) and is compiler-time only.
+    pub(super) fn store_global_type_annotation(&mut self, name: String, type_annotation: Type) {
+        self.global_type_annotations.insert(name, type_annotation);
+    }
+
+    /// Retrieves a type annotation for a global variable, if one exists.
+    #[allow(dead_code)]
+    pub(super) fn get_global_type_annotation(&self, name: &str) -> Option<&Type> {
+        self.global_type_annotations.get(name)
+    }
 }

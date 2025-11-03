@@ -258,6 +258,15 @@ fn run_class_annotations() {
 }
 
 #[test]
+fn run_symbol_table_demo() {
+    let output = run_example("examples/type-annotations/symbol_table_demo.py");
+    assert_eq!(
+        output,
+        "Global counter: 2\nGlobal name: Symbol Table Demo\nGlobal pi: 3.14159\nGlobal active: True\nResult from process_data: 230\nCounter after reassignment: 999\n"
+    );
+}
+
+#[test]
 fn test_introspection_function_name() {
     let output = run_example("examples/introspection/function_name.py");
     assert_eq!(output, "greet\ncalculate\n");

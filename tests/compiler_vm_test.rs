@@ -236,3 +236,65 @@ test()
     assert_eq!(result, InterpretResult::Ok);
     assert_eq!(*last_popped, ObjectType::Integer(150));
 }
+
+#[test]
+fn test_global_variable_type_annotations() {
+    // Test that global variables with type annotations compile and execute correctly
+    let source = "
+x: int = 10
+y: str = 'hello'
+z: float = 3.14
+result: int = x + 5
+result
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(15));
+}
+
+#[test]
+fn test_mixed_global_local_type_annotations() {
+    // Test mix of global and local type annotations
+    let source = "
+global_var: int = 100
+
+def test():
+    local_var: int = 50
+    return global_var + local_var
+
+test()
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(150));
+}
+
+#[test]
+fn test_reassignment_with_type_annotation() {
+    // Test that we can reassign a variable that was initially declared with a type annotation
+    let source = "
+x: int = 10
+x = 20
+x = x + 5
+x
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(25));
+}
+
+#[test]
+fn test_multiple_type_annotations_different_types() {
+    // Test multiple global variables with different type annotations
+    let source = "
+a: int = 42
+b: float = 2.5
+c: str = 'test'
+d: bool = True
+e: list = [1, 2, 3]
+len(e)
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::Integer(3));
+}
