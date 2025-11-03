@@ -38,14 +38,14 @@
         - [x] Run `cargo test`
     - [x] Run `cargo fmt && cargo clippy`
 
-- [ ] Phase 3: Extract Function Call Logic (~175 lines)
-    - [ ] Create `src/vm/function_calls.rs`
-    - [ ] Move `call_value()` method
-    - [ ] Move `call_function()` method
-    - [ ] Add helper methods for call types
-    - [ ] Add module declaration to `mod.rs`
-    - [ ] Run `cargo fmt && cargo clippy`
-    - [ ] Run `cargo test`
+- [x] Phase 3: Extract Function Call Logic (~175 lines)
+    - [x] Create `src/vm/function_calls.rs`
+    - [x] Move `call_value()` method
+    - [x] Move `call_function()` method
+    - [x] Add helper methods for call types
+    - [x] Add module declaration to `mod.rs`
+    - [x] Run `cargo fmt && cargo clippy`
+    - [x] Run `cargo test`
 
 - [ ] Phase 4: Extract Return Handling (~43 lines)
     - [ ] Create `src/vm/return_handler.rs`
