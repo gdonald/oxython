@@ -47,18 +47,18 @@
     - [x] Run `cargo fmt && cargo clippy`
     - [x] Run `cargo test`
 
-- [ ] Phase 4: Extract Return Handling (~43 lines)
-    - [ ] Create `src/vm/return_handler.rs`
-    - [ ] Move `handle_return()` method
-    - [ ] Add module declaration to `mod.rs`
-    - [ ] Run `cargo fmt && cargo clippy`
-    - [ ] Run `cargo test`
+- [x] Phase 4: Extract Return Handling (~43 lines)
+    - [x] Create `src/vm/return_handler.rs`
+    - [x] Move `handle_return()` method
+    - [x] Add module declaration to `mod.rs`
+    - [x] Run `cargo fmt && cargo clippy`
+    - [x] Run `cargo test`
 
-- [ ] Phase 5: Simplify Main run() Loop
-    - [ ] Refactor `run()` to simplified version
-    - [ ] Adjust dispatcher control flow if needed
-    - [ ] Run `cargo fmt && cargo clippy`
-    - [ ] Run `cargo test`
+- [x] Phase 5: Simplify Main run() Loop
+    - [x] Refactor `run()` to simplified version
+    - [x] Adjust dispatcher control flow if needed
+    - [x] Run `cargo fmt && cargo clippy`
+    - [x] Run `cargo test`
 
 - [ ] Phase 6: Final Verification
     - [ ] Verify `mod.rs` is ~100-150 lines
