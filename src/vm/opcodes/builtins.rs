@@ -77,3 +77,9 @@ pub fn op_zip(args: Vec<Object>, star_mask: u16) -> Result<Rc<ObjectType>, Inter
 
     Ok(Rc::new(ObjectType::List(zipped)))
 }
+
+/// Handle OpType - Get the type of an object as a string
+pub fn op_type(value: Rc<ObjectType>) -> Rc<ObjectType> {
+    let type_name = value.get_type().name().to_string();
+    Rc::new(ObjectType::String(type_name))
+}

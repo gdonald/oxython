@@ -409,6 +409,11 @@ impl VM {
                     Err(e) => return e,
                 }
             }
+            OpCode::OpType => {
+                let value = self.pop();
+                let type_name = opcodes::builtins::op_type(value);
+                self.push(type_name);
+            }
         }
 
         InterpretResult::Ok

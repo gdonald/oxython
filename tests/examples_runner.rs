@@ -315,3 +315,16 @@ fn test_introspection_default_parameters() {
         "no_defaults\nnil\nwith_defaults\n(10, 20)\nall_defaults\n(1, 2, 3)\ngreet\n('Hello', '!')\n"
     );
 }
+
+// ============================================================================
+// BUILTINS
+// ============================================================================
+
+#[test]
+fn test_builtin_type_introspection() {
+    let output = run_example("examples/builtins/type_introspection.py");
+    assert_eq!(
+        output,
+        "type(42) = int\ntype(3.14) = float\ntype('Alice') = str\ntype(True) = bool\ntype([1, 2, 3]) = list\ntype({'Alice': 90, 'Bob': 85}) = dict\ntype(10 + 20) = int\ntype(type(42)) = str\n"
+    );
+}

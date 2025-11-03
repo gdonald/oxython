@@ -298,3 +298,82 @@ len(e)
     assert_eq!(result, InterpretResult::Ok);
     assert_eq!(*last_popped, ObjectType::Integer(3));
 }
+
+#[test]
+fn test_type_builtin_integer() {
+    let source = "type(42)";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::String("int".to_string()));
+}
+
+#[test]
+fn test_type_builtin_float() {
+    let source = "type(3.14)";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::String("float".to_string()));
+}
+
+#[test]
+fn test_type_builtin_string() {
+    let source = "type('hello')";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::String("str".to_string()));
+}
+
+#[test]
+fn test_type_builtin_boolean() {
+    let source = "type(True)";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::String("bool".to_string()));
+}
+
+#[test]
+fn test_type_builtin_list() {
+    let source = "type([1, 2, 3])";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::String("list".to_string()));
+}
+
+#[test]
+fn test_type_builtin_dict() {
+    let source = "type({'a': 1})";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::String("dict".to_string()));
+}
+
+#[test]
+fn test_type_builtin_none() {
+    let source = "
+def foo():
+    return
+type(foo())
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::String("None".to_string()));
+}
+
+#[test]
+fn test_type_builtin_variable() {
+    let source = "
+x = 42
+type(x)
+";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::String("int".to_string()));
+}
+
+#[test]
+fn test_type_builtin_expression() {
+    let source = "type(10 + 20)";
+    let (result, last_popped) = run_code(source);
+    assert_eq!(result, InterpretResult::Ok);
+    assert_eq!(*last_popped, ObjectType::String("int".to_string()));
+}

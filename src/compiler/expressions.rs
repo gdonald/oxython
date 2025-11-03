@@ -120,7 +120,19 @@ impl super::Compiler<'_> {
                     return self.parse_zip_call();
                 }
 
-                if name == "len" && self.lexer.clone().next() == Some(Ok(Token::LParen)) {
+                if name == "type" && self.lexer.clone().next() == Some(Ok(Token::LParen)) {
+                    self.lexer.next(); // consume '('
+                    if !self.parse_expression() {
+                        self.had_error = true;
+                        return false;
+                    }
+                    if self.lexer.next() != Some(Ok(Token::RParen)) {
+                        self.had_error = true;
+                        return false;
+                    }
+                    self.chunk.code.push(OpCode::OpType as u8);
+                    true
+                } else if name == "len" && self.lexer.clone().next() == Some(Ok(Token::LParen)) {
                     self.lexer.next(); // consume '('
                     if !self.parse_expression() {
                         self.had_error = true;

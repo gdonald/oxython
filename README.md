@@ -151,7 +151,7 @@ cargo tarpaulin --out Html
             - [x] Create example demonstrating default parameter introspection.
             - [x] Write tests for default parameter attributes.
         - [x] Store variable type annotations in symbol table (compiler-time only, no runtime enforcement).
-        - [ ] Implement `type()` builtin to query object types at runtime.
+        - [x] Implement `type()` builtin to query object types at runtime.
     - [ ] Optional Type Checking (Compiler-Time)
         - [ ] Add compiler flag/mode to enable optional type checking.
         - [ ] Implement basic type checker that validates annotated variables and function calls.
